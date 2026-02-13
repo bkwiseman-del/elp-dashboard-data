@@ -63,26 +63,33 @@ def fetch_elp_violations(limit=10000, offset=0):
 def fetch_inspection_states(unique_ids):
     """
     Fetch state information (report_state) for given inspection IDs
+    Strategy: Fetch all Driver Fitness inspections since June 2025 and match in Python
+    This avoids 414 Request-URI Too Large errors from complex queries
     """
     if not unique_ids:
         return {}
     
-    print(f"Fetching state data for {len(unique_ids)} inspections...")
+    print(f"Fetching inspection state data for {len(unique_ids)} violations...")
+    print("Strategy: Fetching all recent Driver Fitness inspections and matching in Python...")
     
-    # Process in batches to avoid URL length limits
-    batch_size = 500
+    # Convert list to set for fast lookup
+    target_ids = set(unique_ids)
     state_map = {}
     
-    for i in range(0, len(unique_ids), batch_size):
-        batch = unique_ids[i:i + batch_size]
-        
-        # Build OR query for this batch
-        id_conditions = " OR ".join([f"unique_id = '{uid}'" for uid in batch])
+    # Fetch inspections in batches
+    limit = 10000
+    offset = 0
+    max_batches = 5
+    
+    for batch_num in range(max_batches):
+        print(f"  Fetching inspection batch {batch_num + 1}...")
         
         params = {
-            "$where": id_conditions,
-            "$select": "unique_id, report_state, insp_date",
-            "$limit": batch_size
+            "$where": f"insp_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND dr_fitness_insp = 'Y'",
+            "$select": "unique_id, report_state",
+            "$limit": limit,
+            "$offset": offset,
+            "$order": "insp_date DESC"
         }
         
         try:
@@ -90,23 +97,42 @@ def fetch_inspection_states(unique_ids):
             response.raise_for_status()
             inspections = response.json()
             
-            # Map unique_id to report_state
+            if not inspections:
+                print(f"  No more inspections found, stopping.")
+                break
+            
+            # Match inspections to our violation IDs
+            matches = 0
             for inspection in inspections:
                 uid = inspection.get("unique_id")
-                state = inspection.get("report_state")
-                if uid and state:
-                    state_map[uid] = state
+                if uid in target_ids:
+                    state = inspection.get("report_state")
+                    if state:
+                        state_map[uid] = state
+                        matches += 1
             
-            print(f"  ✓ Batch {i//batch_size + 1}: Matched {len(inspections)} inspections")
+            print(f"  ✓ Batch {batch_num + 1}: Found {matches} matching inspections (total mapped: {len(state_map)})")
             
-            # Rate limiting
-            time.sleep(0.3)
+            # If we've mapped all violations, we can stop
+            if len(state_map) >= len(target_ids):
+                print(f"  All violations mapped, stopping early.")
+                break
+            
+            # If we got less than limit, we've reached the end
+            if len(inspections) < limit:
+                print(f"  Reached end of inspections.")
+                break
+            
+            offset += limit
+            time.sleep(0.5)
             
         except requests.exceptions.RequestException as e:
             print(f"  ✗ Error fetching inspection batch: {e}")
+            if hasattr(e, 'response') and e.response:
+                print(f"     Status: {e.response.status_code}")
             continue
     
-    print(f"✓ Total states mapped: {len(state_map)} of {len(unique_ids)} violations")
+    print(f"✓ Successfully mapped {len(state_map)} of {len(unique_ids)} violations to states")
     return state_map
 
 def fetch_all_elp_data():
@@ -116,7 +142,7 @@ def fetch_all_elp_data():
     all_violations = []
     offset = 0
     limit = 10000
-    max_batches = 15  # Max 150k records
+    max_batches = 20  # Fetch up to 200k records to get all 10k+ ELP violations
     
     print("Starting to fetch Driver Fitness violations...")
     
@@ -137,6 +163,8 @@ def fetch_all_elp_data():
         
         offset += limit
         print(f"Total ELP violations so far: {len(all_violations)}")
+        
+        # Continue until we stop finding ELP violations
     
     print(f"\n✓ Total ELP violations fetched: {len(all_violations)}")
     
