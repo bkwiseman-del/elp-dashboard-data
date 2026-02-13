@@ -8,6 +8,7 @@
   
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   
   <style>
     body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
@@ -44,19 +45,6 @@
     
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .fade-in { animation: fadeIn 0.5s ease-out; }
-    
-    .state-bubble { 
-      position: absolute; 
-      border-radius: 50%; 
-      cursor: pointer; 
-      transition: all 0.3s ease;
-      border: 3px solid white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .state-bubble:hover { 
-      transform: scale(1.1); 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
   </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-blue-50">
@@ -99,176 +87,158 @@
   <!-- Main Content -->
   <div class="max-w-7xl mx-auto px-6 py-6">
     
-    <!-- Data Source Notice -->
-    <div id="sampleDataNotice" class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-r-lg">
+    <!-- Sample Data Notice (hidden by default, shown only if sample data) -->
+    <div id="sampleDataNotice" style="display: none;" class="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg">
       <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        <svg class="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
         </svg>
-        <div class="text-sm text-orange-900">
-          <strong>Sample Data Demonstration:</strong> This dashboard currently displays representative sample data modeling typical ELP enforcement patterns. Production version will connect to live FMCSA API for real-time violation data.
+        <div>
+          <h3 class="font-bold text-amber-900">Using Sample Data</h3>
+          <p class="text-sm text-amber-800 mt-1">This dashboard is displaying sample data. Real FMCSA data will be loaded when available from the API.</p>
         </div>
       </div>
     </div>
     
     <!-- Data Freshness Notice -->
-    <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6 rounded-r-lg">
-      <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+    <div class="mb-6 flex items-center justify-between bg-white rounded-lg shadow-sm px-4 py-3">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
         </svg>
-        <div class="text-sm text-blue-900">
-          <strong>Data Freshness:</strong> Source data last updated by FMCSA on <strong id="dataFreshnessDate">February 10, 2026</strong>. Dashboard reflects violation data through this date. FMCSA typically updates enforcement data weekly.
-        </div>
+        <span class="text-sm text-gray-700">Data current as of <strong id="dataFreshnessDate">Loading...</strong></span>
       </div>
-    </div>
-    
-    <!-- Introduction Panel -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-xl shadow-xl p-6 mb-6 fade-in">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2">
-          <h2 class="text-2xl font-bold mb-3">About This Dashboard</h2>
-          <p class="text-blue-100 mb-4 leading-relaxed">
-            This dashboard tracks <strong>English Language Proficiency (ELP)</strong> violations under 49 CFR § 391.11(b)(2), which requires commercial motor vehicle drivers to read and speak English sufficiently to converse with the general public, understand highway traffic signs, respond to official inquiries, and make entries on reports and records.
-          </p>
-          <p class="text-blue-100 mb-4 leading-relaxed">
-            Following <strong>Executive Order 14286</strong> (April 2025), the restoration of ELP to Out-of-Service criteria (June 25, 2025), and Congressional codification in the FY2026 spending bill, enforcement has intensified dramatically.
-          </p>
-          <div class="flex flex-wrap gap-3">
-            <a href="https://data.transportation.gov/Roadway-Safety/Motor-Carrier-Management-Information-System-MCMIS-/8mt8-2mdr" target="_blank" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition">
-              📊 View Raw FMCSA Data →
-            </a>
-            <a href="https://www.trucksafe.com/post/trump-cracks-down-on-english-proficiency-among-truck-drivers-in-new-executive-order" target="_blank" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition">
-              📰 Read Full Analysis →
-            </a>
-          </div>
-        </div>
-        
-        <!-- Embedded YouTube Video -->
-        <div class="lg:col-span-1">
-          <div class="bg-black rounded-lg overflow-hidden shadow-2xl">
-            <iframe 
-              width="100%" 
-              height="200" 
-              src="https://www.youtube.com/embed/QWXvrCsjjFQ?start=137" 
-              title="ELP Enforcement Explained" 
-              frameborder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowfullscreen
-              class="w-full"
-            ></iframe>
-          </div>
-          <p class="text-xs text-blue-200 mt-2 text-center">Expert analysis by Trucksafe Consulting</p>
-        </div>
-      </div>
+      <span class="text-xs text-gray-500">Source: FMCSA Data Portal</span>
     </div>
 
     <!-- Regulatory Timeline -->
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6 fade-in">
       <h3 class="text-lg font-bold text-gray-800 mb-6">Regulatory Timeline</h3>
       
+      <!-- Timeline -->
       <div class="relative">
-        <div class="absolute top-10 left-0 right-0 h-1 bg-gradient-to-r from-blue-300 via-orange-300 to-red-500"></div>
+        <!-- Timeline line -->
+        <div class="absolute top-8 left-0 right-0 h-1 bg-gradient-to-r from-blue-200 via-red-200 to-purple-200"></div>
         
-        <div class="relative flex justify-between pt-4">
-          
-          <div class="timeline-event flex flex-col items-center" style="flex: 1;" onclick="toggleTooltip(event, 0)">
-            <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-lg">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <!-- Timeline events -->
+        <div class="relative flex justify-between">
+          <!-- Event 1 -->
+          <div class="timeline-event flex flex-col items-center z-10" onclick="toggleTooltip(event, 0)">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
             </div>
-            <div class="text-xs font-bold text-gray-700 mt-2">2005</div>
-            <div class="text-xs text-gray-600 text-center px-1">CVSA Adds</div>
-            
-            <div class="tooltip-popup" onclick="event.stopPropagation()">
-              <div class="text-sm font-bold text-[#1e3a8a] mb-2">CVSA Adds ELP to OOS</div>
-              <div class="text-xs text-gray-600 mb-3">2005 FMCSA policy memorandum and CVSA update adds English Language Proficiency violations to Out-of-Service criteria.</div>
-              <div class="text-xs text-gray-500 italic">Click outside to close</div>
+            <div class="mt-3 text-center">
+              <div class="text-sm font-bold text-gray-700">2005</div>
+              <div class="text-xs text-gray-500">CVSA Adds</div>
             </div>
-          </div>
-          
-          <div class="timeline-event flex flex-col items-center" style="flex: 1;" onclick="toggleTooltip(event, 1)">
-            <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center shadow-lg">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
-            </div>
-            <div class="text-xs font-bold text-gray-700 mt-2">2015</div>
-            <div class="text-xs text-gray-600 text-center px-1">Removed</div>
-            
-            <div class="tooltip-popup" onclick="event.stopPropagation()">
-              <div class="text-sm font-bold text-[#1e3a8a] mb-2">CVSA Removes ELP from OOS</div>
-              <div class="text-xs text-gray-600 mb-3">ELP violations removed from OOS criteria, leading to less strict enforcement for 10 years.</div>
-              <div class="text-xs text-gray-500 italic">Click outside to close</div>
-            </div>
-          </div>
-          
-          <div class="timeline-event flex flex-col items-center" style="flex: 1;" onclick="toggleTooltip(event, 2)">
-            <div class="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg animate-pulse">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
-            </div>
-            <div class="text-xs font-bold text-red-700 mt-2">Apr 2025</div>
-            <div class="text-xs text-red-600 font-semibold text-center px-1">Exec Order</div>
-            
-            <div class="tooltip-popup" onclick="event.stopPropagation()">
-              <div class="text-sm font-bold text-red-700 mb-2">Executive Order 14286</div>
-              <div class="text-xs text-gray-600 mb-3">President Trump signs "Enforcing Commonsense Rules of the Road," directing strict ELP enforcement.</div>
-              <a href="https://www.whitehouse.gov/presidential-actions/2025/04/enforcing-commonsense-rules-of-the-road-for-americas-truck-drivers/" target="_blank" class="text-xs text-blue-600 hover:underline font-semibold block mb-1">Read Executive Order →</a>
-              <div class="text-xs text-gray-500 italic">Click outside to close</div>
-            </div>
-          </div>
-          
-          <div class="timeline-event flex flex-col items-center" style="flex: 1;" onclick="toggleTooltip(event, 3)">
-            <div class="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg animate-pulse">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            </div>
-            <div class="text-xs font-bold text-red-700 mt-2">May 2025</div>
-            <div class="text-xs text-red-600 font-semibold text-center px-1">New Policy</div>
-            
-            <div class="tooltip-popup" onclick="event.stopPropagation()">
-              <div class="text-sm font-bold text-red-700 mb-2">FMCSA Enforcement Policy</div>
-              <div class="text-xs text-gray-600 mb-3">FMCSA issues updated enforcement policy with mandatory two-step assessment for drivers.</div>
-              <a href="https://www.fmcsa.dot.gov/sites/fmcsa.dot.gov/files/2025-05/FMCSA%20ELP%20Guidance%20with%20Attachments%20Final%20%285-20-2025%29_Redacted.pdf" target="_blank" class="text-xs text-blue-600 hover:underline font-semibold block mb-1">View Policy Document (PDF) →</a>
-              <div class="text-xs text-gray-500 italic">Click outside to close</div>
-            </div>
-          </div>
-          
-          <div class="timeline-event flex flex-col items-center" style="flex: 1;" onclick="toggleTooltip(event, 4)">
-            <div class="w-12 h-12 rounded-full bg-red-700 flex items-center justify-center shadow-lg animate-pulse">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            </div>
-            <div class="text-xs font-bold text-red-700 mt-2">Jun 2025</div>
-            <div class="text-xs text-red-600 font-semibold text-center px-1">OOS Restored</div>
-            
-            <div class="tooltip-popup" onclick="event.stopPropagation()">
-              <div class="text-sm font-bold text-red-700 mb-2">OOS Criteria Restored</div>
-              <div class="text-xs text-gray-600 mb-3">CVSA reintegrates ELP into OOS criteria effective June 25, 2025. Violations trigger immediate driver suspension.</div>
-              <a href="https://cvsa.org/news/elp-oosc/" target="_blank" class="text-xs text-blue-600 hover:underline font-semibold block mb-1">Read CVSA Announcement →</a>
-              <div class="text-xs text-gray-500 italic">Click outside to close</div>
+            <div class="tooltip-popup">
+              <div class="font-bold text-gray-900 mb-2">ELP Added to OOS Criteria</div>
+              <p class="text-xs text-gray-700">CVSA incorporates English Language Proficiency into North American Standard Out-of-Service Criteria.</p>
+              <a href="https://cvsa.org" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">Learn more →</a>
             </div>
           </div>
 
-          <div class="timeline-event flex flex-col items-center" style="flex: 1;" onclick="toggleTooltip(event, 5)">
-            <div class="w-12 h-12 rounded-full bg-purple-700 flex items-center justify-center shadow-lg animate-pulse">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          <!-- Event 2 -->
+          <div class="timeline-event flex flex-col items-center z-10" onclick="toggleTooltip(event, 1)">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white shadow-lg">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+              </svg>
             </div>
-            <div class="text-xs font-bold text-purple-700 mt-2">Dec 2025</div>
-            <div class="text-xs text-purple-600 font-semibold text-center px-1">Codified</div>
-            
-            <div class="tooltip-popup" onclick="event.stopPropagation()">
-              <div class="text-sm font-bold text-purple-700 mb-2">Congressional Codification</div>
-              <div class="text-xs text-gray-600 mb-3">FY2026 spending bill includes provision codifying ELP as permanent OOS criterion, making it federal law.</div>
-              <div class="text-xs text-gray-500 italic">Click outside to close</div>
+            <div class="mt-3 text-center">
+              <div class="text-sm font-bold text-gray-700">2016</div>
+              <div class="text-xs text-gray-500">Removed</div>
+            </div>
+            <div class="tooltip-popup">
+              <div class="font-bold text-gray-900 mb-2">ELP Removed from OOS</div>
+              <p class="text-xs text-gray-700">Obama Administration removes ELP from out-of-service criteria, limiting enforcement options.</p>
+              <a href="https://www.fmcsa.dot.gov" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">Learn more →</a>
             </div>
           </div>
-          
+
+          <!-- Event 3 -->
+          <div class="timeline-event flex flex-col items-center z-10" onclick="toggleTooltip(event, 2)">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white shadow-lg">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="mt-3 text-center">
+              <div class="text-sm font-bold text-gray-700">Apr 2025</div>
+              <div class="text-xs text-gray-500">Exec Order</div>
+            </div>
+            <div class="tooltip-popup">
+              <div class="font-bold text-gray-900 mb-2">Executive Order 14286</div>
+              <p class="text-xs text-gray-700">"Enforcing Commonsense Rules of the Road" directs FMCSA to restore ELP enforcement within 60 days.</p>
+              <a href="https://www.whitehouse.gov" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">Read order →</a>
+            </div>
+          </div>
+
+          <!-- Event 4 -->
+          <div class="timeline-event flex flex-col items-center z-10" onclick="toggleTooltip(event, 3)">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white shadow-lg">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div class="mt-3 text-center">
+              <div class="text-sm font-bold text-gray-700">May 2025</div>
+              <div class="text-xs text-gray-500">New Policy</div>
+            </div>
+            <div class="tooltip-popup">
+              <div class="font-bold text-gray-900 mb-2">FMCSA Issues New Guidance</div>
+              <p class="text-xs text-gray-700">FMCSA releases enforcement memo MC-SEE-2025-0001 with detailed assessment procedures for roadside inspections.</p>
+              <a href="https://www.fmcsa.dot.gov/regulations" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">View guidance →</a>
+            </div>
+          </div>
+
+          <!-- Event 5 -->
+          <div class="timeline-event flex flex-col items-center z-10" onclick="toggleTooltip(event, 4)">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white shadow-lg">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <div class="mt-3 text-center">
+              <div class="text-sm font-bold text-gray-700">Jun 2025</div>
+              <div class="text-xs text-gray-500">OOS Restored</div>
+            </div>
+            <div class="tooltip-popup">
+              <div class="font-bold text-gray-900 mb-2">CVSA Restores ELP to OOS</div>
+              <p class="text-xs text-gray-700">Effective June 25, 2025, drivers failing ELP assessment can be placed out-of-service immediately.</p>
+              <a href="https://cvsa.org/news/elp-oosc-06252025/" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">Read announcement →</a>
+            </div>
+          </div>
+
+          <!-- Event 6 -->
+          <div class="timeline-event flex flex-col items-center z-10" onclick="toggleTooltip(event, 5)">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <div class="mt-3 text-center">
+              <div class="text-sm font-bold text-gray-700">Dec 2025</div>
+              <div class="text-xs text-gray-500">Codified</div>
+            </div>
+            <div class="tooltip-popup">
+              <div class="font-bold text-gray-900 mb-2">Regulation Formally Updated</div>
+              <p class="text-xs text-gray-700">FMCSA formally codifies ELP as out-of-service condition in 49 CFR 391.11(b)(2), making it permanent.</p>
+              <a href="https://www.ecfr.gov/current/title-49/subtitle-B/chapter-III/subchapter-B/part-391" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">View regulation →</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    
+
     <!-- KPI Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div class="stat-card bg-white rounded-xl shadow-lg p-5 border-l-4 border-[#1e3a8a]">
         <div class="text-sm font-semibold text-gray-600 mb-1" id="statLabel">TOTAL OOS</div>
         <div class="text-3xl font-bold text-[#1e3a8a]" id="statOOS">527</div>
-        <div class="text-xs text-gray-500 mt-1" id="statDateRange">Since June 25, 2025</div>
+        <div class="text-xs text-gray-500 mt-1" id="statDateRange">Since Jan 25</div>
       </div>
       
       <div class="stat-card bg-white rounded-xl shadow-lg p-5 border-l-4 border-orange-500">
@@ -297,22 +267,22 @@
       <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 fade-in">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-bold text-gray-800" id="chartTitle">OOS Enforcement Trend</h3>
-          <span class="text-xs text-gray-500" id="chartDateRange">June 2025 - February 2026</span>
+          <span class="text-xs text-gray-500" id="chartDateRange">Jan 2025 - Feb 2026</span>
         </div>
         <canvas id="trendChart" height="100"></canvas>
         <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p class="text-xs text-blue-900"><strong>Key Insight:</strong> Peak enforcement occurred in October 2025 (73 violations). Recent months show stabilization with slight decline in February 2026.</p>
+          <p class="text-xs text-blue-900" id="keyInsight"><strong>Key Insight:</strong> Loading data...</p>
         </div>
       </div>
       
-      <!-- US Heat Map - Placeholder -->
+      <!-- US Heat Map - Plotly -->
       <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
         <h3 class="text-lg font-bold text-gray-800 mb-3">Geographic Heat Map</h3>
         
         <!-- Date Range Selector -->
         <div class="flex flex-wrap gap-2 mb-4">
           <button onclick="updateMapDateRange('all')" id="dateAll" class="date-range-btn active text-xs px-3 py-1 rounded-lg bg-gray-100">
-            Since Jun 25
+            Since Jan 25
           </button>
           <button onclick="updateMapDateRange('1m')" id="date1m" class="date-range-btn text-xs px-3 py-1 rounded-lg bg-gray-100">
             Last Month
@@ -322,35 +292,11 @@
           </button>
         </div>
         
-        <!-- Map Placeholder -->
-        <div class="bg-gradient-to-br from-blue-50 to-slate-100 rounded-lg p-8 border-2 border-dashed border-blue-300">
-          <div class="text-center">
-            <svg class="w-16 h-16 mx-auto text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-            </svg>
-            <p class="text-sm text-gray-600 font-semibold mb-2">Interactive US Map</p>
-            <p class="text-xs text-gray-500">Geographic visualization coming soon</p>
-          </div>
-          
-          <!-- Top States Quick View -->
-          <div class="mt-6 grid grid-cols-3 gap-2">
-            <div class="bg-red-100 rounded p-2 text-center border border-red-300">
-              <div class="text-xs font-bold text-red-900">CA</div>
-              <div class="text-sm font-bold text-red-700">186</div>
-            </div>
-            <div class="bg-red-50 rounded p-2 text-center border border-red-200">
-              <div class="text-xs font-bold text-red-800">TX</div>
-              <div class="text-sm font-bold text-red-600">171</div>
-            </div>
-            <div class="bg-orange-50 rounded p-2 text-center border border-orange-200">
-              <div class="text-xs font-bold text-orange-800">FL</div>
-              <div class="text-sm font-bold text-orange-600">145</div>
-            </div>
-          </div>
-        </div>
+        <!-- Plotly Map -->
+        <div id="usMap" style="height: 350px;"></div>
         
         <div class="mt-3 text-xs text-gray-600 text-center font-semibold" id="mapDateLabel">
-          Showing: All violations since June 25, 2025
+          Showing: All violations since Jan 25
         </div>
       </div>
     </div>
@@ -358,28 +304,32 @@
     <!-- Biggest Movers -->
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6 fade-in">
       <h3 class="text-lg font-bold text-gray-800 mb-4">Biggest Movers - Month over Month</h3>
-      <p class="text-sm text-gray-600 mb-4">States with largest change in OOS violations (Jan 2026 vs Feb 2026)</p>
+      <p class="text-sm text-gray-600 mb-4" id="biggestMoversSubtitle">States with largest change in OOS violations</p>
       
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Top Increases -->
         <div>
-          <h4 class="font-semibold text-red-700 mb-3 flex items-center gap-2">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
-            Top 3 Increases
+          <h4 class="text-sm font-bold text-red-700 mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            Largest Increases
           </h4>
           <div class="space-y-3" id="biggestIncreases">
-            <!-- Populated by JavaScript -->
+            <p class="text-sm text-gray-500 text-center py-4">Loading...</p>
           </div>
         </div>
         
         <!-- Top Decreases -->
         <div>
-          <h4 class="font-semibold text-green-700 mb-3 flex items-center gap-2">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-            Top 3 Decreases
+          <h4 class="text-sm font-bold text-green-700 mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            Largest Decreases
           </h4>
           <div class="space-y-3" id="biggestDecreases">
-            <!-- Populated by JavaScript -->
+            <p class="text-sm text-gray-500 text-center py-4">Loading...</p>
           </div>
         </div>
       </div>
@@ -387,63 +337,24 @@
 
     <!-- Top 10 States -->
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6 fade-in">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold text-gray-800">Top 10 States - OOS Violations</h3>
-        <span class="text-sm text-gray-600 font-semibold">Data: June 25, 2025 - February 13, 2026</span>
-      </div>
-      <div class="space-y-2" id="topStatesList">
-        <!-- Populated by JavaScript -->
+      <h3 class="text-lg font-bold text-gray-800 mb-4">Top 10 States by OOS Violations</h3>
+      <div class="space-y-2" id="topStates">
+        <p class="text-sm text-gray-500 text-center py-8">Loading...</p>
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="bg-gradient-to-r from-[#1e3a8a] to-[#0f172a] text-white rounded-xl p-8 shadow-xl">
-      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-        <div class="flex items-center gap-4">
-          <img src="https://static.wixstatic.com/media/bb03f1_6b91954720844c2d88de1cdf16213d0c~mv2.png/v1/fill/w_96,h_60,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Trucksafe%20Badge.png" alt="Trucksafe" class="h-12">
-          <div>
-            <h3 class="text-lg font-bold">Powered by Trucksafe Consulting, LLC</h3>
-            <p class="text-sm text-blue-200">Expert DOT compliance consulting & training</p>
-          </div>
-        </div>
-        <div class="flex gap-3">
-          <a href="https://www.trucksafe.com" target="_blank" class="bg-white text-[#1e3a8a] px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">
-            Visit Website
-          </a>
-          <a href="https://www.trucksafe.com/contact" target="_blank" class="bg-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition">
-            Get Help
-          </a>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script>
-    let currentView = 'oos';
-    let trendChart;
-    let activeTooltip = null;
     let realData = null;
-
-    // Load real data from JSON
-    async function loadRealData() {
-      try {
-        const response = await fetch('elp_data.json');
-        if (!response.ok) {
-          console.warn('Real data not available, using sample data');
-          return null;
-        }
-        const data = await response.json();
-        console.log('✓ Real FMCSA data loaded successfully');
-        return data;
-      } catch (error) {
-        console.warn('Error loading real data, using sample data:', error);
-        return null;
-      }
-    }
-
+    let trendChart = null;
+    let currentView = 'oos';
+    let activeTooltip = null;
+    let currentMapRange = 'all';
+    
     // Sample data (fallback)
     const sampleData = {
-      last_updated: "February 10, 2026 (Sample Data)",
+      last_updated: "Sample Data",
       total_oos: 527,
       total_all: 1247,
       oos_rate: 42.3,
@@ -452,36 +363,49 @@
       peak_count: 73,
       mom_change: -4.4,
       monthly: {
-        labels: ['Jun 25', 'Jul 25', 'Aug 25', 'Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26', 'Feb 26'],
-        oos: [58, 61, 65, 69, 73, 67, 71, 68, 65],
-        all: [142, 148, 156, 165, 174, 168, 175, 172, 169]
+        labels: ["Jun 25", "Jul 25", "Aug 25", "Sep 25", "Oct 25", "Nov 25", "Dec 25", "Jan 26", "Feb 26"],
+        oos: [12, 23, 35, 51, 73, 68, 64, 59, 52],
+        all: [28, 54, 82, 120, 173, 161, 151, 139, 123]
       },
       states: [
-        {state: "CA", oos: 186, all: 438},
-        {state: "TX", oos: 171, all: 402},
-        {state: "FL", oos: 145, all: 342},
-        {state: "NY", oos: 121, all: 285},
-        {state: "IL", oos: 97, all: 228},
-        {state: "PA", oos: 89, all: 210},
-        {state: "OH", oos: 76, all: 179},
-        {state: "GA", oos: 68, all: 160},
-        {state: "NC", oos: 59, all: 139},
-        {state: "WA", oos: 52, all: 122}
+        { state: "CA", oos: 186, all: 440 },
+        { state: "TX", oos: 171, all: 405 },
+        { state: "FL", oos: 145, all: 343 },
+        { state: "IL", oos: 98, all: 232 },
+        { state: "GA", oos: 87, all: 206 },
+        { state: "NY", oos: 76, all: 180 },
+        { state: "PA", oos: 64, all: 151 },
+        { state: "OH", oos: 53, all: 125 },
+        { state: "NC", oos: 47, all: 111 },
+        { state: "AZ", oos: 41, all: 97 }
       ],
       biggest_movers: {
         increases: [
-          {state: "AZ", previous: 12, current: 18, change: 50.0},
-          {state: "NM", previous: 8, current: 11, change: 37.5},
-          {state: "NV", previous: 15, current: 20, change: 33.3}
+          { state: "FL", change: 23.5, current: 42, previous: 34 },
+          { state: "GA", change: 18.2, current: 26, previous: 22 },
+          { state: "NC", change: 15.4, current: 15, previous: 13 }
         ],
         decreases: [
-          {state: "MI", previous: 24, current: 16, change: -33.3},
-          {state: "NJ", previous: 18, current: 13, change: -27.8},
-          {state: "WA", previous: 22, current: 17, change: -22.7}
+          { state: "CA", change: -12.3, current: 29, previous: 33 },
+          { state: "TX", change: -8.7, current: 21, previous: 23 },
+          { state: "IL", change: -6.5, current: 14, previous: 15 }
         ]
       },
-      state_count: 15
+      state_count: 45,
+      data_source: "sample"
     };
+
+    async function loadRealData() {
+      try {
+        const response = await fetch('elp_data.json');
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (e) {
+        console.log('Using sample data');
+      }
+      return null;
+    }
 
     async function initDashboard() {
       // Load real or sample data
@@ -510,6 +434,12 @@
       
       // Update top 10 states
       updateTopStates();
+      
+      // Initialize Plotly map
+      initPlotlyMap();
+      
+      // Generate dynamic key insight
+      updateKeyInsight();
     }
 
     function updateKPIs() {
@@ -531,12 +461,38 @@
         document.getElementById('statDateRange').textContent = `Since ${firstMonth}`;
         
         // Update Month-over-Month label with actual months
-        if (realData.monthly.labels.length >= 2) {
-          const lastMonthLabel = realData.monthly.labels[realData.monthly.labels.length - 1];
-          const secondLastMonthLabel = realData.monthly.labels[realData.monthly.labels.length - 2];
-          document.getElementById('momLabel').textContent = `${lastMonthLabel} vs ${secondLastMonthLabel}`;
+        if (realData.monthly.labels.length >= 3) {
+          // Using [-2] and [-3] for full months
+          const lastFullMonth = realData.monthly.labels[realData.monthly.labels.length - 2];
+          const previousFullMonth = realData.monthly.labels[realData.monthly.labels.length - 3];
+          document.getElementById('momLabel').textContent = `${lastFullMonth} vs ${previousFullMonth}`;
+          
+          // Update biggest movers subtitle
+          document.getElementById('biggestMoversSubtitle').textContent = 
+            `States with largest change in OOS violations (${lastFullMonth} vs ${previousFullMonth})`;
         }
       }
+    }
+
+    function updateKeyInsight() {
+      if (!realData || !realData.monthly || !realData.monthly.labels.length) {
+        document.getElementById('keyInsight').innerHTML = '<strong>Key Insight:</strong> Loading data...';
+        return;
+      }
+      
+      const labels = realData.monthly.labels;
+      const oosData = currentView === 'oos' ? realData.monthly.oos : realData.monthly.all;
+      const peakMonth = realData.peak_month;
+      const peakCount = realData.peak_count;
+      
+      // Find trend in recent months (last 3 months)
+      const recentMonths = oosData.slice(-3);
+      const trend = recentMonths[2] < recentMonths[1] ? 'decline' : recentMonths[2] > recentMonths[1] ? 'increase' : 'stabilization';
+      const lastMonth = labels[labels.length - 1];
+      
+      const insight = `<strong>Key Insight:</strong> Peak enforcement occurred in ${peakMonth} (${peakCount.toLocaleString()} violations). Recent months show ${trend} with ${oosData[oosData.length - 1].toLocaleString()} violations in ${lastMonth}.`;
+      
+      document.getElementById('keyInsight').innerHTML = insight;
     }
 
     function updateBiggestMovers() {
@@ -562,8 +518,8 @@
         </div>
       `).join('');
       
-      document.getElementById('biggestIncreases').innerHTML = increasesHTML || '<p class="text-sm text-gray-500 text-center py-4">No data available</p>';
-      document.getElementById('biggestDecreases').innerHTML = decreasesHTML || '<p class="text-sm text-gray-500 text-center py-4">No data available</p>';
+      document.getElementById('biggestIncreases').innerHTML = increasesHTML || '<p class="text-sm text-gray-500 text-center py-4">No significant changes</p>';
+      document.getElementById('biggestDecreases').innerHTML = decreasesHTML || '<p class="text-sm text-gray-500 text-center py-4">No significant changes</p>';
     }
 
     function updateTopStates() {
@@ -578,15 +534,17 @@
             <div class="flex-1">
               <div class="h-8 bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] rounded-lg flex items-center px-3 text-white text-sm font-semibold" style="width: ${widthPercent}%;">${state.oos} OOS violations</div>
             </div>
+            <div class="text-xs text-gray-500">${state.all} total</div>
           </div>
         `;
       }).join('');
       
-      document.getElementById('topStatesList').innerHTML = topStatesHTML;
+      document.getElementById('topStates').innerHTML = topStatesHTML;
     }
 
     function initChart() {
       const ctx = document.getElementById('trendChart').getContext('2d');
+      
       trendChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -608,24 +566,36 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: 'rgba(30, 58, 138, 0.9)',
-              titleColor: '#fff',
-              bodyColor: '#fff',
-              borderColor: '#1e3a8a',
-              borderWidth: 2,
+              backgroundColor: '#1e3a8a',
+              titleFont: { size: 14, weight: 'bold' },
+              bodyFont: { size: 13 },
               padding: 12,
-              displayColors: false
+              cornerRadius: 8,
+              displayColors: false,
+              callbacks: {
+                title: function(context) {
+                  return context[0].label;
+                },
+                label: function(context) {
+                  return 'OOS Violations: ' + context.parsed.y.toLocaleString();
+                }
+              }
             }
           },
           scales: {
             y: {
               beginAtZero: true,
               grid: { color: 'rgba(0, 0, 0, 0.05)' },
-              ticks: { font: { size: 12 } }
+              ticks: {
+                font: { size: 11 },
+                callback: function(value) {
+                  return value.toLocaleString();
+                }
+              }
             },
             x: {
               grid: { display: false },
@@ -634,6 +604,68 @@
           }
         }
       });
+    }
+
+    function initPlotlyMap() {
+      // Prepare data for Plotly
+      const states = realData.states.map(s => s.state);
+      const oosValues = realData.states.map(s => s.oos);
+      const allValues = realData.states.map(s => s.all);
+      
+      // Hover text
+      const hoverText = realData.states.map(s => 
+        `${s.state}<br>OOS: ${s.oos.toLocaleString()}<br>Total: ${s.all.toLocaleString()}`
+      );
+      
+      const data = [{
+        type: 'choropleth',
+        locationmode: 'USA-states',
+        locations: states,
+        z: oosValues,
+        text: hoverText,
+        hoverinfo: 'text',
+        colorscale: [
+          [0, '#eff6ff'],
+          [0.2, '#dbeafe'],
+          [0.4, '#93c5fd'],
+          [0.6, '#3b82f6'],
+          [0.8, '#1e40af'],
+          [1, '#1e3a8a']
+        ],
+        colorbar: {
+          title: 'OOS<br>Violations',
+          thickness: 15,
+          len: 0.7
+        },
+        marker: {
+          line: {
+            color: 'white',
+            width: 1.5
+          }
+        }
+      }];
+      
+      const layout = {
+        geo: {
+          scope: 'usa',
+          showlakes: false,
+          bgcolor: 'rgba(0,0,0,0)'
+        },
+        margin: { t: 0, b: 0, l: 0, r: 0 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: {
+          family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          size: 11
+        }
+      };
+      
+      const config = {
+        responsive: true,
+        displayModeBar: false
+      };
+      
+      Plotly.newPlot('usMap', data, layout, config);
     }
 
     function toggleView(view) {
@@ -654,7 +686,7 @@
         trendChart.data.datasets[0].borderColor = '#1e3a8a';
         
         // Update state rankings for OOS
-        updateStateRankings(true);
+        updateTopStates();
       } else {
         // All violations view - update all metrics to show total violation data
         document.getElementById('statLabel').textContent = 'TOTAL VIOLATIONS';
@@ -666,19 +698,17 @@
         trendChart.data.datasets[0].backgroundColor = 'rgba(59, 130, 246, 0.1)';
         trendChart.data.datasets[0].borderColor = '#3b82f6';
         
-        // Update state rankings for all violations
-        updateStateRankings(false);
+        // Update state rankings for all violations (would need different data structure)
+        updateTopStates();
       }
       
       trendChart.update();
-    }
-    
-    function updateStateRankings(isOOS) {
-      // This function would update the state ranking list based on view
-      // For now, we'll leave the state ranking as-is since we'd need the data structure
+      updateKeyInsight();
     }
 
     function updateMapDateRange(range) {
+      currentMapRange = range;
+      
       ['dateAll', 'date1m', 'date3m'].forEach(id => {
         document.getElementById(id).classList.remove('active');
       });
@@ -687,7 +717,7 @@
       document.getElementById(rangeMap[range]).classList.add('active');
       
       const labels = {
-        'all': 'All violations since June 25, 2025',
+        'all': 'All violations since Jan 25',
         '1m': 'Last 30 days',
         '3m': 'Last 3 months'
       };
