@@ -19,33 +19,48 @@ INSPECTIONS_API = "https://data.transportation.gov/resource/rbkj-cgst.json"
 # Date when OOS criteria was restored
 OOS_RESTORATION_DATE = "2025-06-25"
 
-def fetch_elp_violations(limit=50000, offset=0):
+def fetch_elp_violations(limit=10000, offset=0):
     """
     Fetch ELP violations from FMCSA Violations dataset
     
     Returns:
         List of violation records with Unique_ID and OOS indicator
     """
-    print(f"Fetching ELP violations (offset: {offset})...")
+    print(f"Fetching violations from FMCSA (offset: {offset})...")
     
-    # Query for violations containing "English" in description AND in Driver Fitness BASIC
-    # Filter by date >= June 25, 2025
+    # Simplified query - fetch Driver Fitness violations since June 2025
+    # Then filter for ELP in Python
     params = {
-        "$where": f"inspection_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND (lower(section_desc) like '%english%' OR lower(section) like '%391.11%') AND lower(basic_desc) = 'driver fitness'",
+        "$where": f"inspection_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND basic_desc = 'Driver Fitness'",
         "$limit": limit,
         "$offset": offset,
         "$order": "inspection_date DESC",
-        "$select": "unique_id, inspection_date, oos_indicator, section_desc, basic_desc"
+        "$select": "unique_id, inspection_date, oos_indicator, section_desc, section, basic_desc"
     }
     
     try:
         response = requests.get(VIOLATIONS_API, params=params, timeout=60)
         response.raise_for_status()
         data = response.json()
-        print(f"✓ Fetched {len(data)} ELP violation records")
-        return data
+        
+        # Filter for ELP violations in Python
+        elp_violations = []
+        for record in data:
+            section_desc = str(record.get("section_desc", "")).lower()
+            section = str(record.get("section", "")).lower()
+            
+            # Check if this is an ELP violation (English language or 391.11)
+            if "english" in section_desc or "391.11" in section:
+                elp_violations.append(record)
+        
+        print(f"✓ Fetched {len(data)} Driver Fitness violations, {len(elp_violations)} are ELP")
+        return elp_violations
+        
     except requests.exceptions.RequestException as e:
         print(f"✗ Error fetching violations: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"   Status code: {e.response.status_code}")
+            print(f"   Response: {e.response.text[:200]}")
         return []
 
 def fetch_inspection_states(unique_ids):
@@ -113,24 +128,35 @@ def fetch_all_elp_data():
     """
     all_violations = []
     offset = 0
-    limit = 50000
-    max_records = 250000  # Limit to prevent timeout
+    limit = 10000  # Smaller batches for more reliable fetching
+    max_records = 100000  # Limit to prevent timeout
     
-    # Fetch violations
-    while len(all_violations) < max_records:
+    # Fetch violations in batches
+    print("Starting to fetch Driver Fitness violations...")
+    for batch_num in range(10):  # Max 10 batches = 100k records
+        print(f"\nBatch {batch_num + 1}:")
         batch = fetch_elp_violations(limit=limit, offset=offset)
+        
         if not batch:
+            print("No more violations found, stopping.")
             break
         
         all_violations.extend(batch)
         
+        # If we got less than limit, we've reached the end
         if len(batch) < limit:
+            print(f"Received {len(batch)} violations (less than limit), stopping pagination.")
             break
         
         offset += limit
         
         # Progress update
-        print(f"Total violations so far: {len(all_violations)}")
+        print(f"Total ELP violations so far: {len(all_violations)}")
+        
+        # Stop if we've hit our max
+        if len(all_violations) >= max_records:
+            print(f"Reached maximum record limit ({max_records}), stopping.")
+            break
     
     print(f"\n✓ Total ELP violations fetched: {len(all_violations)}")
     
