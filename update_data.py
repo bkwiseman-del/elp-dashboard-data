@@ -96,7 +96,7 @@ def fetch_inspection_states(unique_ids):
     # Fetch inspections in batches - NO FILTER, just get all recent ones
     limit = 10000
     offset = 0
-    max_batches = 200  # Fetch up to 2M inspections to match all violations
+    max_batches = 30  # Reduced to 30 to avoid rate limits and finish faster
     
     for batch_num in range(max_batches):
         print(f"  Fetching inspection batch {batch_num + 1}...")
@@ -142,7 +142,13 @@ def fetch_inspection_states(unique_ids):
                 break
             
             offset += limit
-            time.sleep(0.5)
+            
+            # CRITICAL: Add delay to avoid API rate limiting
+            time.sleep(2)
+            
+            # CRITICAL: Add delay to avoid API rate limiting
+            # FMCSA has strict rate limits - wait 2 seconds between batches
+            time.sleep(2)
             
         except requests.exceptions.RequestException as e:
             print(f"  ✗ Error fetching inspection batch: {e}")
@@ -160,7 +166,7 @@ def fetch_all_elp_data():
     all_violations = []
     offset = 0
     limit = 10000
-    max_batches = 50  # Fetch up to 500k Driver Fitness records to find ALL ELP violations
+    max_batches = 25  # Reduced to 25 to avoid API rate limits (will get ~250k DF violations, ~37k ELP)
     
     print("Starting to fetch Driver Fitness violations...")
     
