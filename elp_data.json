@@ -1,9 +1,9 @@
 {
   "last_updated": "February 13, 2026",
-  "total_oos": 16808,
-  "total_all": 55150,
+  "total_oos": 16806,
+  "total_all": 55143,
   "oos_rate": 30.5,
-  "avg_per_month": 1201,
+  "avg_per_month": 1200,
   "peak_month": "Sep '25",
   "peak_count": 2278,
   "mom_change": 14.3,
@@ -25,7 +25,7 @@
       "Feb 26"
     ],
     "oos": [
-      130,
+      128,
       156,
       193,
       223,
@@ -41,7 +41,7 @@
       729
     ],
     "all": [
-      514,
+      507,
       561,
       676,
       709,
@@ -70,8 +70,8 @@
     },
     {
       "state": "AR",
-      "oos": 917,
-      "all": 1063
+      "oos": 916,
+      "all": 1062
     },
     {
       "state": "WY",
@@ -81,12 +81,12 @@
     {
       "state": "TN",
       "oos": 692,
-      "all": 964
+      "all": 963
     },
     {
       "state": "PA",
       "oos": 663,
-      "all": 992
+      "all": 991
     },
     {
       "state": "AZ",
