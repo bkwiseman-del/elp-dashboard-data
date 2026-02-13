@@ -219,8 +219,18 @@ def process_violations(violations):
             if not date_str:
                 continue
             
-            # Extract year-month
-            date_obj = datetime.fromisoformat(str(date_str).split("T")[0])
+            # Parse FMCSA date format: DD-MMM-YY (e.g., "26-DEC-23" or "31-OCT-25")
+            try:
+                # Try parsing DD-MMM-YY format
+                date_obj = datetime.strptime(str(date_str).strip().upper(), "%d-%b-%y")
+            except:
+                try:
+                    # Fallback: try ISO format
+                    date_obj = datetime.fromisoformat(str(date_str).split("T")[0])
+                except:
+                    # Can't parse, skip this violation
+                    continue
+            
             year_month = date_obj.strftime("%Y-%m")
             
             # Get state (from our join)
@@ -245,7 +255,6 @@ def process_violations(violations):
                 state_monthly[state][year_month]["oos"] += 1
         
         except Exception as e:
-            print(f"Warning: Error processing violation: {e}")
             continue
     
     # Sort monthly data
