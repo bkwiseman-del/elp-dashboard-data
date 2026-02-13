@@ -34,11 +34,12 @@ def load_elp_violations(filename):
     Load violations CSV and find all ELP violation inspection IDs
     Filters for 391.11(b)(2) specifically - all variations
     ONLY for 2025 and later to match what's in inspections CSV
+    Returns dict: {inspection_id: is_elp_oos}
     """
     print(f"Loading violations from {filename}...")
     print("Filtering for ELP violations (391.11(b)(2)) from 2025+...")
     
-    elp_inspection_ids = set()
+    elp_violations = {}  # Changed from set to dict to store OOS status
     
     try:
         with open(filename, 'r', encoding='utf-8') as f:
@@ -75,16 +76,22 @@ def load_elp_violations(filename):
                         year = int(date_part[:4])
                         if year >= 2025:
                             inspection_id = row.get('INSPECTION_ID') or row.get('inspection_id')
+                            
+                            # Check if THIS ELP VIOLATION was OOS
+                            oos_indicator = (row.get('OUT_OF_SERVICE_INDICATOR') or row.get('out_of_service_indicator') or '').strip().upper()
+                            is_elp_oos = oos_indicator in ['TRUE', 'T', 'Y', 'YES', '1']
+                            
                             if inspection_id:
-                                elp_inspection_ids.add(inspection_id)
+                                # Store OOS status for this specific ELP violation
+                                elp_violations[inspection_id] = is_elp_oos
                                 elp_count += 1
                 
                 if count % 100000 == 0:
                     print(f"  Processed {count:,} violations... Found {elp_count:,} ELP (2025+) so far")
         
         print(f"✓ Processed {count:,} total violations")
-        print(f"✓ Found {len(elp_inspection_ids):,} inspections with ELP violations")
-        return elp_inspection_ids
+        print(f"✓ Found {len(elp_violations):,} inspections with ELP violations")
+        return elp_violations
         
     except FileNotFoundError:
         print(f"✗ Error: Could not find {filename}")
@@ -181,9 +188,8 @@ def process_inspections(filename, elp_inspection_ids):
                     
                     year_month = date_obj.strftime("%Y-%m")
                     
-                    # Check if OOS
-                    driver_oos = int(row.get('DRIVER_OOS_TOTAL') or row.get('driver_oos_total') or 0)
-                    is_oos = driver_oos > 0
+                    # Check if THIS ELP VIOLATION was OOS (from violations CSV)
+                    is_elp_oos = elp_inspection_ids[inspection_id]
                     
                     # Increment counters
                     monthly_data[year_month]["all"] += 1
@@ -191,7 +197,7 @@ def process_inspections(filename, elp_inspection_ids):
                     state_data[state]["all"] += 1
                     state_monthly[state][year_month]["all"] += 1
                     
-                    if is_oos:
+                    if is_elp_oos:
                         monthly_data[year_month]["oos"] += 1
                         total_oos += 1
                         state_data[state]["oos"] += 1
