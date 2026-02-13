@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FMCSA ELP Violation Data Fetcher - Updated
+FMCSA ELP Violation Data Fetcher - Corrected Field Names
 Fetches English Language Proficiency violation data from FMCSA via Socrata API
 Cross-references Violations and Inspections datasets to get state-level data
 """
@@ -22,20 +22,17 @@ OOS_RESTORATION_DATE = "2025-06-25"
 def fetch_elp_violations(limit=10000, offset=0):
     """
     Fetch ELP violations from FMCSA Violations dataset
-    
-    Returns:
-        List of violation records with Unique_ID and OOS indicator
+    Uses correct field names: insp_date, oos_indicator, basic_desc, section_desc
     """
     print(f"Fetching violations from FMCSA (offset: {offset})...")
     
-    # Simplified query - fetch Driver Fitness violations since June 2025
-    # Then filter for ELP in Python
+    # Query using correct field name: insp_date (not inspection_date)
     params = {
-        "$where": f"inspection_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND basic_desc = 'Driver Fitness'",
+        "$where": f"insp_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND basic_desc = 'Driver Fitness'",
         "$limit": limit,
         "$offset": offset,
-        "$order": "inspection_date DESC",
-        "$select": "unique_id, inspection_date, oos_indicator, section_desc, section, basic_desc"
+        "$order": "insp_date DESC",
+        "$select": "unique_id, insp_date, oos_indicator, section_desc, viol_code, basic_desc"
     }
     
     try:
@@ -47,10 +44,10 @@ def fetch_elp_violations(limit=10000, offset=0):
         elp_violations = []
         for record in data:
             section_desc = str(record.get("section_desc", "")).lower()
-            section = str(record.get("section", "")).lower()
+            viol_code = str(record.get("viol_code", "")).lower()
             
-            # Check if this is an ELP violation (English language or 391.11)
-            if "english" in section_desc or "391.11" in section:
+            # Check if this is an ELP violation
+            if "english" in section_desc or "391.11" in viol_code or "391.11" in section_desc:
                 elp_violations.append(record)
         
         print(f"✓ Fetched {len(data)} Driver Fitness violations, {len(elp_violations)} are ELP")
@@ -60,27 +57,20 @@ def fetch_elp_violations(limit=10000, offset=0):
         print(f"✗ Error fetching violations: {e}")
         if hasattr(e, 'response') and e.response is not None:
             print(f"   Status code: {e.response.status_code}")
-            print(f"   Response: {e.response.text[:200]}")
+            print(f"   Response: {e.response.text[:500]}")
         return []
 
 def fetch_inspection_states(unique_ids):
     """
-    Fetch state information for given inspection IDs
-    
-    Args:
-        unique_ids: List of Unique_ID values
-    
-    Returns:
-        Dictionary mapping unique_id to state
+    Fetch state information (report_state) for given inspection IDs
     """
     if not unique_ids:
         return {}
     
     print(f"Fetching state data for {len(unique_ids)} inspections...")
     
-    # Build query to get states for these inspection IDs
-    # Process in batches of 1000 to avoid URL length limits
-    batch_size = 1000
+    # Process in batches to avoid URL length limits
+    batch_size = 500
     state_map = {}
     
     for i in range(0, len(unique_ids), batch_size):
@@ -91,7 +81,7 @@ def fetch_inspection_states(unique_ids):
         
         params = {
             "$where": id_conditions,
-            "$select": "unique_id, report_state, inspection_date",
+            "$select": "unique_id, report_state, insp_date",
             "$limit": batch_size
         }
         
@@ -100,7 +90,7 @@ def fetch_inspection_states(unique_ids):
             response.raise_for_status()
             inspections = response.json()
             
-            # Map unique_id to state
+            # Map unique_id to report_state
             for inspection in inspections:
                 uid = inspection.get("unique_id")
                 state = inspection.get("report_state")
@@ -109,8 +99,8 @@ def fetch_inspection_states(unique_ids):
             
             print(f"  ✓ Batch {i//batch_size + 1}: Matched {len(inspections)} inspections")
             
-            # Rate limiting - be nice to the API
-            time.sleep(0.5)
+            # Rate limiting
+            time.sleep(0.3)
             
         except requests.exceptions.RequestException as e:
             print(f"  ✗ Error fetching inspection batch: {e}")
@@ -122,41 +112,31 @@ def fetch_inspection_states(unique_ids):
 def fetch_all_elp_data():
     """
     Fetch all ELP violations and join with state data
-    
-    Returns:
-        List of violations with state information
     """
     all_violations = []
     offset = 0
-    limit = 10000  # Smaller batches for more reliable fetching
-    max_records = 100000  # Limit to prevent timeout
+    limit = 10000
+    max_batches = 15  # Max 150k records
     
-    # Fetch violations in batches
     print("Starting to fetch Driver Fitness violations...")
-    for batch_num in range(10):  # Max 10 batches = 100k records
-        print(f"\nBatch {batch_num + 1}:")
+    
+    for batch_num in range(max_batches):
+        print(f"\n--- Batch {batch_num + 1} ---")
         batch = fetch_elp_violations(limit=limit, offset=offset)
         
         if not batch:
-            print("No more violations found, stopping.")
+            print("No more violations found.")
             break
         
         all_violations.extend(batch)
         
         # If we got less than limit, we've reached the end
         if len(batch) < limit:
-            print(f"Received {len(batch)} violations (less than limit), stopping pagination.")
+            print(f"Received {len(batch)} violations (less than limit), stopping.")
             break
         
         offset += limit
-        
-        # Progress update
         print(f"Total ELP violations so far: {len(all_violations)}")
-        
-        # Stop if we've hit our max
-        if len(all_violations) >= max_records:
-            print(f"Reached maximum record limit ({max_records}), stopping.")
-            break
     
     print(f"\n✓ Total ELP violations fetched: {len(all_violations)}")
     
@@ -183,18 +163,9 @@ def fetch_all_elp_data():
     return violations_with_states
 
 def process_violations(violations):
-    """
-    Process and aggregate violation data
-    
-    Args:
-        violations: List of violation records with state data
-    
-    Returns:
-        Dictionary with aggregated data
-    """
+    """Process and aggregate violation data"""
     print("\nProcessing violations...")
     
-    # Initialize data structures
     monthly_data = defaultdict(lambda: {"oos": 0, "all": 0})
     state_data = defaultdict(lambda: {"oos": 0, "all": 0})
     state_monthly = defaultdict(lambda: defaultdict(lambda: {"oos": 0, "all": 0}))
@@ -204,28 +175,27 @@ def process_violations(violations):
     
     for violation in violations:
         try:
-            # Parse inspection date
-            inspection_date = violation.get("inspection_date", "")
-            if not inspection_date:
+            # Get insp_date (correct field name)
+            date_str = violation.get("insp_date")
+            if not date_str:
                 continue
             
             # Extract year-month
-            date_obj = datetime.fromisoformat(inspection_date.split("T")[0])
+            date_obj = datetime.fromisoformat(str(date_str).split("T")[0])
             year_month = date_obj.strftime("%Y-%m")
             
-            # Get state
+            # Get state (from our join)
             state = violation.get("state", "UNKNOWN")
             if not state or state == "UNKNOWN":
                 continue
             
-            # Check if OOS - look for 'Y' or '1'
+            # Check if OOS using oos_indicator field
             oos_indicator = str(violation.get("oos_indicator", "")).upper()
-            is_oos = oos_indicator in ["Y", "YES", "1", "TRUE"]
+            is_oos = oos_indicator in ["Y", "YES"]
             
             # Increment counters
             monthly_data[year_month]["all"] += 1
             total_all += 1
-            
             state_data[state]["all"] += 1
             state_monthly[state][year_month]["all"] += 1
             
@@ -242,7 +212,7 @@ def process_violations(violations):
     # Sort monthly data
     sorted_months = sorted(monthly_data.keys())
     
-    # Prepare monthly arrays for charts
+    # Prepare monthly arrays
     monthly_labels = []
     monthly_oos = []
     monthly_all = []
@@ -261,7 +231,7 @@ def process_violations(violations):
         reverse=True
     )[:10]
     
-    # Calculate month-over-month changes
+    # Calculate biggest movers
     biggest_movers = calculate_biggest_movers(state_monthly, sorted_months)
     
     # Calculate statistics
@@ -269,7 +239,7 @@ def process_violations(violations):
     peak_month = max(monthly_data.items(), key=lambda x: x[1]["oos"]) if monthly_data else (None, {"oos": 0})
     peak_month_label = datetime.strptime(peak_month[0], "%Y-%m").strftime("%b '%y") if peak_month[0] else "N/A"
     
-    # Calculate month-over-month percentage
+    # Month-over-month percentage
     if len(monthly_oos) >= 2:
         current_month = monthly_oos[-1]
         last_month = monthly_oos[-2]
@@ -277,7 +247,6 @@ def process_violations(violations):
     else:
         mom_change = 0
     
-    # Get last update date
     last_update = datetime.now().strftime("%B %d, %Y")
     
     result = {
@@ -314,9 +283,7 @@ def process_violations(violations):
     return result
 
 def calculate_biggest_movers(state_monthly, sorted_months):
-    """
-    Calculate states with biggest month-over-month changes
-    """
+    """Calculate states with biggest month-over-month changes"""
     if len(sorted_months) < 2:
         return {"increases": [], "decreases": []}
     
@@ -343,10 +310,7 @@ def calculate_biggest_movers(state_monthly, sorted_months):
     increases = [c for c in changes if c["change"] > 0][:3]
     decreases = [c for c in changes if c["change"] < 0][:3]
     
-    return {
-        "increases": increases,
-        "decreases": decreases
-    }
+    return {"increases": increases, "decreases": decreases}
 
 def save_data(data, filename="elp_data.json"):
     """Save processed data to JSON file"""
@@ -376,7 +340,7 @@ def main():
         print("\n⚠ No ELP violations found with state data.")
         print("This might be due to:")
         print("  - API connectivity issues")
-        print("  - Data not yet available in public dataset")
+        print("  - Data not yet available")
         print("  - Query parameters need adjustment")
         sys.exit(1)
     
