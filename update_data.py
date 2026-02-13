@@ -22,17 +22,18 @@ OOS_RESTORATION_DATE = "2025-06-25"
 def fetch_elp_violations(limit=10000, offset=0):
     """
     Fetch ELP violations from FMCSA Violations dataset
-    Uses correct field names: insp_date, oos_indicator, basic_desc, section_desc
+    Uses correct field names: Insp_Date, OOS_Indicator, BASIC_Desc, Section_Desc
     """
     print(f"Fetching violations from FMCSA (offset: {offset})...")
     
-    # Query using correct field name: insp_date (not inspection_date)
+    # Query using correct field names (check API documentation for exact case)
+    # Try with BASIC_Desc (from docs) - Socrata may be case-sensitive
     params = {
-        "$where": f"insp_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND basic_desc = 'Driver Fitness'",
+        "$where": f"Insp_Date >= '{OOS_RESTORATION_DATE}T00:00:00' AND BASIC_Desc = 'Driver Fitness'",
         "$limit": limit,
         "$offset": offset,
-        "$order": "insp_date DESC",
-        "$select": "unique_id, insp_date, oos_indicator, section_desc, viol_code, basic_desc"
+        "$order": "Insp_Date DESC",
+        "$select": "Unique_ID, Insp_Date, OOS_Indicator, Section_Desc, Viol_Code, BASIC_Desc"
     }
     
     try:
@@ -43,12 +44,21 @@ def fetch_elp_violations(limit=10000, offset=0):
         # Filter for ELP violations in Python
         elp_violations = []
         for record in data:
-            section_desc = str(record.get("section_desc", "")).lower()
-            viol_code = str(record.get("viol_code", "")).lower()
+            section_desc = str(record.get("Section_Desc", "") or record.get("section_desc", "")).lower()
+            viol_code = str(record.get("Viol_Code", "") or record.get("viol_code", "")).lower()
             
             # Check if this is an ELP violation
             if "english" in section_desc or "391.11" in viol_code or "391.11" in section_desc:
-                elp_violations.append(record)
+                # Normalize field names to lowercase for consistency
+                normalized = {
+                    "unique_id": record.get("Unique_ID") or record.get("unique_id"),
+                    "insp_date": record.get("Insp_Date") or record.get("insp_date"),
+                    "oos_indicator": record.get("OOS_Indicator") or record.get("oos_indicator"),
+                    "section_desc": record.get("Section_Desc") or record.get("section_desc"),
+                    "viol_code": record.get("Viol_Code") or record.get("viol_code"),
+                    "basic_desc": record.get("BASIC_Desc") or record.get("basic_desc")
+                }
+                elp_violations.append(normalized)
         
         print(f"✓ Fetched {len(data)} Driver Fitness violations, {len(elp_violations)} are ELP")
         return elp_violations
@@ -62,34 +72,35 @@ def fetch_elp_violations(limit=10000, offset=0):
 
 def fetch_inspection_states(unique_ids):
     """
-    Fetch state information (report_state) for given inspection IDs
-    Strategy: Fetch all Driver Fitness inspections since June 2025 and match in Python
+    Fetch state information (Report_State) for given inspection IDs
+    Strategy: Fetch all inspections since June 2025 and match in Python
     This avoids 414 Request-URI Too Large errors from complex queries
     """
     if not unique_ids:
         return {}
     
     print(f"Fetching inspection state data for {len(unique_ids)} violations...")
-    print("Strategy: Fetching all recent Driver Fitness inspections and matching in Python...")
+    print("Strategy: Fetching all recent inspections and matching in Python...")
     
     # Convert list to set for fast lookup
     target_ids = set(unique_ids)
     state_map = {}
     
-    # Fetch inspections in batches
+    # Fetch inspections in batches - NO FILTER, just get all recent ones
     limit = 10000
     offset = 0
-    max_batches = 5
+    max_batches = 10
     
     for batch_num in range(max_batches):
         print(f"  Fetching inspection batch {batch_num + 1}...")
         
+        # Use capitalized field names from documentation
         params = {
-            "$where": f"insp_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND dr_fitness_insp = 'Y'",
-            "$select": "unique_id, report_state",
+            "$where": f"Insp_Date >= '{OOS_RESTORATION_DATE}T00:00:00'",
+            "$select": "Unique_ID, Report_State",
             "$limit": limit,
             "$offset": offset,
-            "$order": "insp_date DESC"
+            "$order": "Insp_Date DESC"
         }
         
         try:
@@ -101,21 +112,21 @@ def fetch_inspection_states(unique_ids):
                 print(f"  No more inspections found, stopping.")
                 break
             
-            # Match inspections to our violation IDs
+            # Match inspections to our violation IDs (handle both cases)
             matches = 0
             for inspection in inspections:
-                uid = inspection.get("unique_id")
+                uid = inspection.get("Unique_ID") or inspection.get("unique_id")
                 if uid in target_ids:
-                    state = inspection.get("report_state")
+                    state = inspection.get("Report_State") or inspection.get("report_state")
                     if state:
                         state_map[uid] = state
                         matches += 1
             
             print(f"  ✓ Batch {batch_num + 1}: Found {matches} matching inspections (total mapped: {len(state_map)})")
             
-            # If we've mapped all violations, we can stop
-            if len(state_map) >= len(target_ids):
-                print(f"  All violations mapped, stopping early.")
+            # If we've mapped most violations, we can stop
+            if len(state_map) >= len(target_ids) * 0.95:
+                print(f"  Mapped 95%+ of violations, stopping early.")
                 break
             
             # If we got less than limit, we've reached the end
@@ -132,7 +143,7 @@ def fetch_inspection_states(unique_ids):
                 print(f"     Status: {e.response.status_code}")
             continue
     
-    print(f"✓ Successfully mapped {len(state_map)} of {len(unique_ids)} violations to states")
+    print(f"✓ Successfully mapped {len(state_map)} of {len(unique_ids)} violations to states ({len(state_map)/len(unique_ids)*100:.1f}%)")
     return state_map
 
 def fetch_all_elp_data():
