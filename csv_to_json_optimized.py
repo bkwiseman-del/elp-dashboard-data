@@ -335,6 +335,17 @@ def generate_json(monthly_data, state_data, state_monthly, total_oos, total_all)
             }
             for state, data in top_states
         ],
+        "state_monthly": {
+            state: {
+                month_label: {
+                    "oos": months[month_key]["oos"],
+                    "all": months[month_key]["all"]
+                }
+                for month_key, month_label in zip(sorted_months, monthly_labels)
+                if month_key in months
+            }
+            for state, months in state_monthly.items()
+        },
         "biggest_movers": biggest_movers,
         "state_count": len([s for s in state_data.values() if s["oos"] > 0]),
         "data_source": "real"
