@@ -96,7 +96,7 @@ def fetch_inspection_states(unique_ids):
     # Fetch inspections in batches - NO FILTER, just get all recent ones
     limit = 10000
     offset = 0
-    max_batches = 10
+    max_batches = 200  # Fetch up to 2M inspections to match all violations
     
     for batch_num in range(max_batches):
         print(f"  Fetching inspection batch {batch_num + 1}...")
@@ -268,17 +268,13 @@ def process_violations(violations):
             if not state or state == "UNKNOWN":
                 continue
             
-            # Check if OOS - try multiple possible indicators
+            # Check if OOS - FMCSA uses "TRUE"/"FALSE" format
             oos_indicator = str(violation.get("oos_indicator", "")).upper().strip()
             oos_indicator_alt = str(violation.get("OOS_Indicator", "")).upper().strip()
             
-            # Check various formats: "Y", "YES", "1", "TRUE"
-            is_oos = (oos_indicator in ["Y", "YES", "1", "TRUE"] or 
-                     oos_indicator_alt in ["Y", "YES", "1", "TRUE"])
-            
-            # Debug: print first few OOS indicators to see what format they're in
-            if total_all < 5:
-                print(f"  Sample OOS indicator: '{oos_indicator}' or '{oos_indicator_alt}'")
+            # Check for "TRUE", "T", "Y", "YES", "1"
+            is_oos = (oos_indicator in ["TRUE", "T", "Y", "YES", "1"] or 
+                     oos_indicator_alt in ["TRUE", "T", "Y", "YES", "1"])
             
             # Increment counters
             monthly_data[year_month]["all"] += 1
