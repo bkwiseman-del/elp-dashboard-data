@@ -349,7 +349,7 @@
       <div class="stat-card bg-white rounded-xl shadow-lg p-5 border-l-4 border-blue-500">
         <div class="text-sm font-semibold text-gray-600 mb-1">PEAK MONTH</div>
         <div class="text-3xl font-bold text-blue-500" id="statPeak">Oct '25</div>
-        <div class="text-xs text-gray-500 mt-1">73 violations</div>
+        <div class="text-xs text-gray-500 mt-1" id="statPeakCount">73 violations</div>
       </div>
     </div>
 
@@ -531,6 +531,7 @@
       document.getElementById('statMoM').textContent = (realData.mom_change > 0 ? '+' : '') + realData.mom_change + '%';
       document.getElementById('statAvg').textContent = realData.avg_per_month;
       document.getElementById('statPeak').textContent = realData.peak_month;
+      document.getElementById('statPeakCount').textContent = realData.peak_count.toLocaleString() + ' violations';
       
       // Calculate actual date range from data
       if (realData.monthly && realData.monthly.labels && realData.monthly.labels.length > 0) {
