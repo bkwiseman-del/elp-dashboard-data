@@ -1,18 +1,117 @@
 {
   "last_updated": "February 13, 2026",
   "total_oos": 0,
-  "total_all": 0,
-  "oos_rate": 0,
+  "total_all": 807,
+  "oos_rate": 0.0,
   "avg_per_month": 0,
-  "peak_month": "N/A",
+  "peak_month": "Oct '25",
   "peak_count": 0,
   "mom_change": 0,
   "monthly": {
-    "labels": [],
-    "oos": [],
-    "all": []
+    "labels": [
+      "Dec 23",
+      "Jan 24",
+      "Mar 24",
+      "May 24",
+      "Jul 24",
+      "Aug 24",
+      "Oct 24",
+      "Dec 24",
+      "Jan 25",
+      "Mar 25",
+      "May 25",
+      "Jul 25",
+      "Aug 25",
+      "Sep 25",
+      "Oct 25"
+    ],
+    "oos": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "all": [
+      6,
+      23,
+      1,
+      20,
+      29,
+      8,
+      28,
+      20,
+      17,
+      22,
+      41,
+      238,
+      53,
+      32,
+      269
+    ]
   },
-  "states": [],
+  "states": [
+    {
+      "state": "US",
+      "oos": 0,
+      "all": 284
+    },
+    {
+      "state": "TX",
+      "oos": 0,
+      "all": 169
+    },
+    {
+      "state": "UT",
+      "oos": 0,
+      "all": 5
+    },
+    {
+      "state": "IN",
+      "oos": 0,
+      "all": 5
+    },
+    {
+      "state": "WV",
+      "oos": 0,
+      "all": 2
+    },
+    {
+      "state": "NH",
+      "oos": 0,
+      "all": 10
+    },
+    {
+      "state": "KS",
+      "oos": 0,
+      "all": 12
+    },
+    {
+      "state": "MS",
+      "oos": 0,
+      "all": 9
+    },
+    {
+      "state": "VA",
+      "oos": 0,
+      "all": 2
+    },
+    {
+      "state": "AL",
+      "oos": 0,
+      "all": 8
+    }
+  ],
   "biggest_movers": {
     "increases": [],
     "decreases": []
