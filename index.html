@@ -419,6 +419,87 @@
         <!-- Populated by JavaScript -->
       </div>
     </div>
+    <!-- State Detail Analysis -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6 fade-in">
+      <h3 class="text-lg font-bold text-gray-800 mb-4">State Detail Analysis</h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <!-- State Selector -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Select State</label>
+          <select id="stateSelector" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Choose a state...</option>
+          </select>
+        </div>
+        
+        <!-- Time Range Selector -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Time Range</label>
+          <select id="timeRangeSelector" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="all">All Time</option>
+            <option value="1">Last Month</option>
+            <option value="3">Last 3 Months</option>
+            <option value="6">Last 6 Months</option>
+            <option value="12">Last 12 Months</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- Custom Date Range (hidden by default) -->
+      <div id="customDateRange" class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200" style="display: none;">
+        <div class="flex flex-col gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Start Month</label>
+            <input type="month" id="customStartDate" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">End Month</label>
+            <input type="month" id="customEndDate" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+          </div>
+        </div>
+      </div>
+      
+      <!-- State Stats Display -->
+      <div id="stateDetailContent" class="hidden">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div class="text-xs text-gray-600 mb-1">Total Violations</div>
+            <div class="text-2xl font-bold text-blue-600" id="stateTotal">-</div>
+          </div>
+          <div class="bg-red-50 rounded-lg p-4 border border-red-200">
+            <div class="text-xs text-gray-600 mb-1">OOS Violations</div>
+            <div class="text-2xl font-bold text-red-600" id="stateOOS">-</div>
+          </div>
+          <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+            <div class="text-xs text-gray-600 mb-1">Trend Direction</div>
+            <div class="text-2xl font-bold text-purple-600" id="stateTrend">-</div>
+            <div class="text-xs text-gray-500 mt-1" id="stateTrendLabel">-</div>
+          </div>
+          <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+            <div class="text-xs text-gray-600 mb-1">National Rank</div>
+            <div class="text-2xl font-bold text-green-600" id="stateRank">-</div>
+          </div>
+        </div>
+        
+        <!-- Monthly Trend Chart -->
+        <div class="bg-gray-50 rounded-lg p-4">
+          <h4 class="text-sm font-bold text-gray-700 mb-3" id="stateChartTitle">Monthly Trend</h4>
+          <div style="height: 300px;">
+            <canvas id="stateDetailChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Empty State -->
+      <div id="stateDetailEmpty" class="text-center py-12 text-gray-500">
+        <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <p class="text-sm">Select a state and time range to view detailed analytics</p>
+      </div>
+    </div>
 
     <!-- Footer -->
     <div class="bg-gradient-to-r from-[#1e3a8a] to-[#0f172a] text-white rounded-xl p-8 shadow-xl">
@@ -798,6 +879,274 @@
 
     // Initialize dashboard on page load
     window.addEventListener('load', initDashboard);
+// ========================================
+// STATE DETAIL ANALYSIS FUNCTIONS
+// ========================================
+
+let stateDetailChart = null;
+
+// Populate state selector
+function populateStateSelector() {
+  const selector = document.getElementById('stateSelector');
+  if (!selector) return;
+  
+  // Get all states, excluding "US"
+  const allStates = {};
+  for (const state in realData.state_monthly) {
+    if (state.toUpperCase() !== 'US') {
+      allStates[state] = true;
+    }
+  }
+  
+  // Sort alphabetically
+  const sortedStates = Object.keys(allStates).sort();
+  
+  sortedStates.forEach(state => {
+    const option = document.createElement('option');
+    option.value = state;
+    option.textContent = state;
+    selector.appendChild(option);
+  });
+}
+
+// Show/hide custom date range
+document.getElementById('timeRangeSelector')?.addEventListener('change', function() {
+  const customRange = document.getElementById('customDateRange');
+  if (this.value === 'custom') {
+    customRange.style.display = 'block';
+  } else {
+    customRange.style.display = 'none';
+  }
+  
+  // Update state detail if state is selected
+  const selectedState = document.getElementById('stateSelector').value;
+  if (selectedState) {
+    updateStateDetail(selectedState);
+  }
+});
+
+// State selector change
+document.getElementById('stateSelector')?.addEventListener('change', function() {
+  if (this.value) {
+    updateStateDetail(this.value);
+  } else {
+    document.getElementById('stateDetailContent').classList.add('hidden');
+    document.getElementById('stateDetailEmpty').classList.remove('hidden');
+  }
+});
+
+// Custom date inputs change
+document.getElementById('customStartDate')?.addEventListener('change', function() {
+  const selectedState = document.getElementById('stateSelector').value;
+  if (selectedState) updateStateDetail(selectedState);
+});
+
+document.getElementById('customEndDate')?.addEventListener('change', function() {
+  const selectedState = document.getElementById('stateSelector').value;
+  if (selectedState) updateStateDetail(selectedState);
+});
+
+function updateStateDetail(stateCode) {
+  // Get time range
+  const timeRange = document.getElementById('timeRangeSelector').value;
+  let filteredMonths = [];
+  
+  const allMonths = realData.monthly.labels;
+  
+  if (timeRange === 'custom') {
+    const customStart = document.getElementById('customStartDate').value;
+    const customEnd = document.getElementById('customEndDate').value;
+    
+    if (!customStart || !customEnd) {
+      alert('Please select both start and end dates');
+      return;
+    }
+    
+    // Convert YYYY-MM to month label format
+    const startDate = new Date(customStart + '-01');
+    const endDate = new Date(customEnd + '-01');
+    
+    // Filter months between start and end
+    filteredMonths = allMonths.filter(monthLabel => {
+      const monthDate = parseMonthLabel(monthLabel);
+      return monthDate >= startDate && monthDate <= endDate;
+    });
+  } else if (timeRange === 'all') {
+    filteredMonths = [...allMonths];
+  } else {
+    const months = parseInt(timeRange);
+    filteredMonths = allMonths.slice(-months);
+  }
+  
+  if (filteredMonths.length === 0) {
+    alert('No data available for selected date range');
+    return;
+  }
+  
+  // Get state monthly data
+  const stateMonthly = realData.state_monthly[stateCode];
+  if (!stateMonthly) {
+    alert('No data available for this state');
+    return;
+  }
+  
+  // Calculate totals and arrays for filtered months
+  let totalViolations = 0;
+  let oosViolations = 0;
+  const monthlyOOS = [];
+  const monthlyAll = [];
+  
+  filteredMonths.forEach(month => {
+    const monthData = stateMonthly[month] || { oos: 0, all: 0 };
+    monthlyOOS.push(monthData.oos);
+    monthlyAll.push(monthData.all);
+    oosViolations += monthData.oos;
+    totalViolations += monthData.all;
+  });
+  
+  // Calculate trend (last month vs previous month)
+  let trendPercent = 0;
+  let trendDirection = '→';
+  let trendColor = 'text-gray-600';
+  let trendLabel = 'No change';
+  
+  if (monthlyOOS.length >= 2) {
+    const lastMonth = monthlyOOS[monthlyOOS.length - 1];
+    const prevMonth = monthlyOOS[monthlyOOS.length - 2];
+    
+    if (prevMonth > 0) {
+      trendPercent = ((lastMonth - prevMonth) / prevMonth * 100);
+      
+      if (trendPercent > 0) {
+        trendDirection = '↗';
+        trendColor = 'text-red-600';
+        trendLabel = 'vs Last Month';
+      } else if (trendPercent < 0) {
+        trendDirection = '↘';
+        trendColor = 'text-green-600';
+        trendLabel = 'vs Last Month';
+      } else {
+        trendLabel = 'No change';
+      }
+    }
+  }
+  
+  // Get national rank
+  const allStates = realData.states.filter(s => s.state.toUpperCase() !== 'US');
+  const stateRank = allStates.findIndex(s => s.state === stateCode) + 1;
+  
+  // Update summary cards
+  document.getElementById('stateTotal').textContent = totalViolations.toLocaleString();
+  document.getElementById('stateOOS').textContent = oosViolations.toLocaleString();
+  
+  const trendElement = document.getElementById('stateTrend');
+  trendElement.textContent = `${trendDirection} ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%`;
+  trendElement.className = `text-2xl font-bold ${trendColor}`;
+  document.getElementById('stateTrendLabel').textContent = trendLabel;
+  
+  document.getElementById('stateRank').textContent = '#' + stateRank;
+  
+  // Update chart title
+  document.getElementById('stateChartTitle').textContent = 
+    `${stateCode} - ${filteredMonths[0]} to ${filteredMonths[filteredMonths.length - 1]}`;
+  
+  // Update chart
+  if (stateDetailChart) {
+    stateDetailChart.destroy();
+  }
+  
+  const ctx = document.getElementById('stateDetailChart').getContext('2d');
+  stateDetailChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: filteredMonths,
+      datasets: [
+        {
+          label: 'OOS Violations',
+          data: monthlyOOS,
+          borderColor: '#dc2626',
+          backgroundColor: 'rgba(220, 38, 38, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: '#dc2626'
+        },
+        {
+          label: 'All Violations',
+          data: monthlyAll,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: '#3b82f6'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: { size: 12, weight: '600' }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          cornerRadius: 8
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(0, 0, 0, 0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: function(value) {
+              return value.toLocaleString();
+            }
+          }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11 } }
+        }
+      }
+    }
+  });
+  
+  // Show content, hide empty state
+  document.getElementById('stateDetailContent').classList.remove('hidden');
+  document.getElementById('stateDetailEmpty').classList.add('hidden');
+}
+
+// Helper function to parse month label back to date
+function parseMonthLabel(label) {
+  // label format: "Jan 25" or "Jan '25"
+  const parts = label.replace("'", "").split(' ');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthIndex = monthNames.indexOf(parts[0]);
+  const year = 2000 + parseInt(parts[1]);
+  return new Date(year, monthIndex, 1);
+}
+
+// Initialize state selector when data loads
+const originalLoadData = loadData;
+loadData = function() {
+  originalLoadData();
+  setTimeout(() => {
+    populateStateSelector();
+  }, 100);
+};
+
   </script>
 
 </body>
