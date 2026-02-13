@@ -16,8 +16,8 @@ import time
 VIOLATIONS_API = "https://data.transportation.gov/resource/8mt8-2mdr.json"
 INSPECTIONS_API = "https://data.transportation.gov/resource/rbkj-cgst.json"
 
-# Date when OOS criteria was restored
-OOS_RESTORATION_DATE = "2025-06-25"
+# Date when we start counting ELP violations (all of 2025 forward)
+OOS_RESTORATION_DATE = "2025-01-01"
 
 def fetch_elp_violations(limit=10000, offset=0):
     """
@@ -55,14 +55,14 @@ def fetch_elp_violations(limit=10000, offset=0):
             }
             normalized_data.append(normalized)
         
-        # Filter for ELP violations
+        # Filter for ELP violations - ONLY use "English" in Section_Desc
+        # This is the most reliable way per user's manual analysis
         elp_violations = []
         for record in normalized_data:
             section_desc = str(record.get("section_desc", "")).lower()
-            viol_code = str(record.get("viol_code", "")).lower()
             
-            # Check if this is an ELP violation
-            if "english" in section_desc or "391.11" in viol_code or "391.11" in section_desc:
+            # Check if this is an ELP violation - look for "english" only
+            if "english" in section_desc:
                 elp_violations.append(record)
         
         print(f"✓ Fetched {total_fetched} Driver Fitness violations, {len(elp_violations)} are ELP")
@@ -160,7 +160,7 @@ def fetch_all_elp_data():
     all_violations = []
     offset = 0
     limit = 10000
-    max_batches = 100  # Fetch up to 1M Driver Fitness records to find all ELP violations
+    max_batches = 50  # Fetch up to 500k Driver Fitness records to find ALL ELP violations
     
     print("Starting to fetch Driver Fitness violations...")
     
