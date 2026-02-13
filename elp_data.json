@@ -1,12 +1,12 @@
 {
   "last_updated": "February 13, 2026",
-  "total_oos": 16806,
-  "total_all": 55143,
-  "oos_rate": 30.5,
-  "avg_per_month": 1200,
-  "peak_month": "Sep '25",
-  "peak_count": 2278,
-  "mom_change": 14.3,
+  "total_oos": 13773,
+  "total_all": 55150,
+  "oos_rate": 25.0,
+  "avg_per_month": 984,
+  "peak_month": "Jan '26",
+  "peak_count": 2116,
+  "mom_change": 16.2,
   "monthly": {
     "labels": [
       "Jan 25",
@@ -25,23 +25,23 @@
       "Feb 26"
     ],
     "oos": [
-      128,
-      156,
-      193,
-      223,
-      343,
-      752,
-      1853,
-      1816,
-      2278,
-      2148,
-      1951,
-      1977,
-      2259,
-      729
+      0,
+      0,
+      0,
+      1,
+      4,
+      301,
+      1553,
+      1575,
+      2032,
+      1939,
+      1750,
+      1821,
+      2116,
+      681
     ],
     "all": [
-      507,
+      514,
       561,
       676,
       709,
@@ -60,52 +60,52 @@
   "states": [
     {
       "state": "TX",
-      "oos": 1909,
+      "oos": 1633,
       "all": 14350
     },
     {
-      "state": "US",
-      "oos": 1345,
-      "all": 22886
-    },
-    {
       "state": "AR",
-      "oos": 916,
-      "all": 1062
+      "oos": 885,
+      "all": 1063
     },
     {
       "state": "WY",
-      "oos": 782,
+      "oos": 724,
       "all": 925
     },
     {
-      "state": "TN",
-      "oos": 692,
-      "all": 963
-    },
-    {
-      "state": "PA",
-      "oos": 663,
-      "all": 991
-    },
-    {
-      "state": "AZ",
-      "oos": 633,
-      "all": 1368
-    },
-    {
       "state": "FL",
-      "oos": 629,
+      "oos": 614,
       "all": 649
     },
     {
+      "state": "AZ",
+      "oos": 601,
+      "all": 1368
+    },
+    {
+      "state": "TN",
+      "oos": 563,
+      "all": 964
+    },
+    {
+      "state": "PA",
+      "oos": 474,
+      "all": 992
+    },
+    {
       "state": "CO",
-      "oos": 511,
+      "oos": 460,
       "all": 613
     },
     {
+      "state": "CA",
+      "oos": 446,
+      "all": 642
+    },
+    {
       "state": "IA",
-      "oos": 456,
+      "oos": 436,
       "all": 492
     }
   ],
@@ -119,8 +119,8 @@
       },
       {
         "state": "IL",
-        "change": 100.0,
-        "current": 38,
+        "change": 94.7,
+        "current": 37,
         "previous": 19
       },
       {
@@ -135,13 +135,13 @@
         "state": "NJ",
         "change": -100.0,
         "current": 0,
-        "previous": 29
+        "previous": 30
       },
       {
         "state": "KY",
-        "change": -64.1,
-        "current": 14,
-        "previous": 39
+        "change": -63.9,
+        "current": 13,
+        "previous": 36
       },
       {
         "state": "MD",
