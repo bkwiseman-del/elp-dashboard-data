@@ -22,12 +22,11 @@ OOS_RESTORATION_DATE = "2025-06-25"
 def fetch_elp_violations(limit=10000, offset=0):
     """
     Fetch ELP violations from FMCSA Violations dataset
-    Uses correct field names: Insp_Date, OOS_Indicator, BASIC_Desc, Section_Desc
+    Returns: (elp_violations_list, total_fetched_count)
     """
-    print(f"Fetching violations from FMCSA (offset: {offset})...")
+    print(f"Fetching Driver Fitness violations from FMCSA (offset: {offset})...")
     
-    # Query using correct field names (check API documentation for exact case)
-    # Try with BASIC_Desc (from docs) - Socrata may be case-sensitive
+    # Fetch ALL Driver Fitness violations (not just ELP)
     params = {
         "$where": f"Insp_Date >= '{OOS_RESTORATION_DATE}T00:00:00' AND BASIC_Desc = 'Driver Fitness'",
         "$limit": limit,
@@ -41,34 +40,42 @@ def fetch_elp_violations(limit=10000, offset=0):
         response.raise_for_status()
         data = response.json()
         
-        # Filter for ELP violations in Python
-        elp_violations = []
+        total_fetched = len(data)
+        
+        # Normalize field names
+        normalized_data = []
         for record in data:
-            section_desc = str(record.get("Section_Desc", "") or record.get("section_desc", "")).lower()
-            viol_code = str(record.get("Viol_Code", "") or record.get("viol_code", "")).lower()
+            normalized = {
+                "unique_id": record.get("Unique_ID") or record.get("unique_id"),
+                "insp_date": record.get("Insp_Date") or record.get("insp_date"),
+                "oos_indicator": record.get("OOS_Indicator") or record.get("oos_indicator"),
+                "section_desc": record.get("Section_Desc") or record.get("section_desc"),
+                "viol_code": record.get("Viol_Code") or record.get("viol_code"),
+                "basic_desc": record.get("BASIC_Desc") or record.get("basic_desc")
+            }
+            normalized_data.append(normalized)
+        
+        # Filter for ELP violations
+        elp_violations = []
+        for record in normalized_data:
+            section_desc = str(record.get("section_desc", "")).lower()
+            viol_code = str(record.get("viol_code", "")).lower()
             
             # Check if this is an ELP violation
             if "english" in section_desc or "391.11" in viol_code or "391.11" in section_desc:
-                # Normalize field names to lowercase for consistency
-                normalized = {
-                    "unique_id": record.get("Unique_ID") or record.get("unique_id"),
-                    "insp_date": record.get("Insp_Date") or record.get("insp_date"),
-                    "oos_indicator": record.get("OOS_Indicator") or record.get("oos_indicator"),
-                    "section_desc": record.get("Section_Desc") or record.get("section_desc"),
-                    "viol_code": record.get("Viol_Code") or record.get("viol_code"),
-                    "basic_desc": record.get("BASIC_Desc") or record.get("basic_desc")
-                }
-                elp_violations.append(normalized)
+                elp_violations.append(record)
         
-        print(f"✓ Fetched {len(data)} Driver Fitness violations, {len(elp_violations)} are ELP")
-        return elp_violations
+        print(f"✓ Fetched {total_fetched} Driver Fitness violations, {len(elp_violations)} are ELP")
+        
+        # Return BOTH the ELP violations AND the total count
+        return elp_violations, total_fetched
         
     except requests.exceptions.RequestException as e:
         print(f"✗ Error fetching violations: {e}")
         if hasattr(e, 'response') and e.response is not None:
             print(f"   Status code: {e.response.status_code}")
             print(f"   Response: {e.response.text[:500]}")
-        return []
+        return [], 0
 
 def fetch_inspection_states(unique_ids):
     """
@@ -153,31 +160,54 @@ def fetch_all_elp_data():
     all_violations = []
     offset = 0
     limit = 10000
-    max_batches = 20  # Fetch up to 200k records to get all 10k+ ELP violations
+    max_batches = 100  # Fetch up to 1M Driver Fitness records to find all ELP violations
     
     print("Starting to fetch Driver Fitness violations...")
     
     for batch_num in range(max_batches):
         print(f"\n--- Batch {batch_num + 1} ---")
-        batch = fetch_elp_violations(limit=limit, offset=offset)
         
-        if not batch:
+        # Get both ELP violations and total count fetched
+        elp_batch, total_fetched = fetch_elp_violations(limit=limit, offset=offset)
+        
+        if not elp_batch and total_fetched == 0:
             print("No more violations found.")
             break
         
-        all_violations.extend(batch)
+        all_violations.extend(elp_batch)
         
-        # If we got less than limit, we've reached the end
-        if len(batch) < limit:
-            print(f"Received {len(batch)} violations (less than limit), stopping.")
+        # IMPORTANT: Check if we fetched LESS Driver Fitness violations than the limit
+        # This means we've reached the end of the dataset
+        if total_fetched < limit:
+            print(f"Fetched {total_fetched} Driver Fitness violations (less than limit of {limit}), reached end of dataset.")
             break
         
         offset += limit
         print(f"Total ELP violations so far: {len(all_violations)}")
-        
-        # Continue until we stop finding ELP violations
     
     print(f"\n✓ Total ELP violations fetched: {len(all_violations)}")
+    
+    if not all_violations:
+        return []
+    
+    # Extract unique inspection IDs
+    unique_ids = list(set([v.get("unique_id") for v in all_violations if v.get("unique_id")]))
+    print(f"Unique inspection IDs: {len(unique_ids)}")
+    
+    # Fetch state data for these inspections
+    state_map = fetch_inspection_states(unique_ids)
+    
+    # Join violations with state data
+    violations_with_states = []
+    for violation in all_violations:
+        uid = violation.get("unique_id")
+        if uid and uid in state_map:
+            violation["state"] = state_map[uid]
+            violations_with_states.append(violation)
+    
+    print(f"✓ Violations with state data: {len(violations_with_states)}")
+    
+    return violations_with_states
     
     if not all_violations:
         return []
@@ -238,9 +268,17 @@ def process_violations(violations):
             if not state or state == "UNKNOWN":
                 continue
             
-            # Check if OOS using oos_indicator field
-            oos_indicator = str(violation.get("oos_indicator", "")).upper()
-            is_oos = oos_indicator in ["Y", "YES"]
+            # Check if OOS - try multiple possible indicators
+            oos_indicator = str(violation.get("oos_indicator", "")).upper().strip()
+            oos_indicator_alt = str(violation.get("OOS_Indicator", "")).upper().strip()
+            
+            # Check various formats: "Y", "YES", "1", "TRUE"
+            is_oos = (oos_indicator in ["Y", "YES", "1", "TRUE"] or 
+                     oos_indicator_alt in ["Y", "YES", "1", "TRUE"])
+            
+            # Debug: print first few OOS indicators to see what format they're in
+            if total_all < 5:
+                print(f"  Sample OOS indicator: '{oos_indicator}' or '{oos_indicator_alt}'")
             
             # Increment counters
             monthly_data[year_month]["all"] += 1
