@@ -9,6 +9,16 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   
+  <script>
+    // Detect if we're in an iframe and disable scrolling
+    if (window.self !== window.top) {
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      });
+    }
+  </script>
+  
   <style>
     body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
     
