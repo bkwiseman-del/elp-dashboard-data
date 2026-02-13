@@ -1,105 +1,167 @@
 #!/usr/bin/env python3
 """
-FMCSA ELP Violation Data Fetcher
+FMCSA ELP Violation Data Fetcher - Updated
 Fetches English Language Proficiency violation data from FMCSA via Socrata API
-Processes and aggregates data for the Trucksafe ELP Dashboard
+Cross-references Violations and Inspections datasets to get state-level data
 """
 
 import requests
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict
 import sys
+import time
 
-# Socrata API endpoint for FMCSA MCMIS Inspections
-# This is the Inspections dataset which contains violation records
-SOCRATA_API_URL = "https://data.transportation.gov/resource/mbvg-aq5q.json"
-
-# ELP violation codes - try multiple variations
-ELP_VIOLATION_CODES = ["391.11B2", "391.11(B)(2)", "391.11B(2)"]
+# Socrata API endpoints
+VIOLATIONS_API = "https://data.transportation.gov/resource/8mt8-2mdr.json"
+INSPECTIONS_API = "https://data.transportation.gov/resource/rbkj-cgst.json"
 
 # Date when OOS criteria was restored
 OOS_RESTORATION_DATE = "2025-06-25"
 
 def fetch_elp_violations(limit=50000, offset=0):
     """
-    Fetch ELP violations from FMCSA Socrata API
-    
-    Args:
-        limit: Maximum number of records to fetch per request
-        offset: Starting position for pagination
+    Fetch ELP violations from FMCSA Violations dataset
     
     Returns:
-        List of violation records
+        List of violation records with Unique_ID and OOS indicator
     """
-    print(f"Fetching ELP violations from FMCSA (offset: {offset})...")
+    print(f"Fetching ELP violations (offset: {offset})...")
     
-    # Try searching for violations with date filter only first
-    # Then filter by violation code in post-processing
+    # Query for violations containing "English" in description AND in Driver Fitness BASIC
+    # Filter by date >= June 25, 2025
     params = {
-        "$where": f"inspection_date >= '{OOS_RESTORATION_DATE}T00:00:00'",
+        "$where": f"inspection_date >= '{OOS_RESTORATION_DATE}T00:00:00' AND (lower(section_desc) like '%english%' OR lower(section) like '%391.11%') AND lower(basic_desc) = 'driver fitness'",
         "$limit": limit,
         "$offset": offset,
         "$order": "inspection_date DESC",
-        "$select": "inspection_date, state, violation_code, violation_desc, oos_indicator"
+        "$select": "unique_id, inspection_date, oos_indicator, section_desc, basic_desc"
     }
     
     try:
-        response = requests.get(SOCRATA_API_URL, params=params, timeout=30)
+        response = requests.get(VIOLATIONS_API, params=params, timeout=60)
         response.raise_for_status()
         data = response.json()
-        
-        # Filter for ELP violations in the results
-        elp_violations = []
-        for record in data:
-            violation_code = record.get("violation_code", "")
-            violation_desc = record.get("violation_desc", "").lower()
-            
-            # Check if this is an ELP violation
-            if any(code in violation_code for code in ELP_VIOLATION_CODES) or \
-               "english" in violation_desc or "language" in violation_desc:
-                elp_violations.append(record)
-        
-        print(f"✓ Fetched {len(data)} records, {len(elp_violations)} ELP violations")
-        return elp_violations
+        print(f"✓ Fetched {len(data)} ELP violation records")
+        return data
     except requests.exceptions.RequestException as e:
-        print(f"✗ Error fetching data: {e}")
+        print(f"✗ Error fetching violations: {e}")
         return []
 
-def fetch_all_elp_violations():
+def fetch_inspection_states(unique_ids):
     """
-    Fetch all ELP violations using pagination
+    Fetch state information for given inspection IDs
+    
+    Args:
+        unique_ids: List of Unique_ID values
     
     Returns:
-        List of all violation records
+        Dictionary mapping unique_id to state
+    """
+    if not unique_ids:
+        return {}
+    
+    print(f"Fetching state data for {len(unique_ids)} inspections...")
+    
+    # Build query to get states for these inspection IDs
+    # Process in batches of 1000 to avoid URL length limits
+    batch_size = 1000
+    state_map = {}
+    
+    for i in range(0, len(unique_ids), batch_size):
+        batch = unique_ids[i:i + batch_size]
+        
+        # Build OR query for this batch
+        id_conditions = " OR ".join([f"unique_id = '{uid}'" for uid in batch])
+        
+        params = {
+            "$where": id_conditions,
+            "$select": "unique_id, report_state, inspection_date",
+            "$limit": batch_size
+        }
+        
+        try:
+            response = requests.get(INSPECTIONS_API, params=params, timeout=60)
+            response.raise_for_status()
+            inspections = response.json()
+            
+            # Map unique_id to state
+            for inspection in inspections:
+                uid = inspection.get("unique_id")
+                state = inspection.get("report_state")
+                if uid and state:
+                    state_map[uid] = state
+            
+            print(f"  ✓ Batch {i//batch_size + 1}: Matched {len(inspections)} inspections")
+            
+            # Rate limiting - be nice to the API
+            time.sleep(0.5)
+            
+        except requests.exceptions.RequestException as e:
+            print(f"  ✗ Error fetching inspection batch: {e}")
+            continue
+    
+    print(f"✓ Total states mapped: {len(state_map)} of {len(unique_ids)} violations")
+    return state_map
+
+def fetch_all_elp_data():
+    """
+    Fetch all ELP violations and join with state data
+    
+    Returns:
+        List of violations with state information
     """
     all_violations = []
     offset = 0
     limit = 50000
-    max_attempts = 5  # Only fetch first 250k records to avoid timeout
+    max_records = 250000  # Limit to prevent timeout
     
-    for attempt in range(max_attempts):
+    # Fetch violations
+    while len(all_violations) < max_records:
         batch = fetch_elp_violations(limit=limit, offset=offset)
         if not batch:
             break
         
         all_violations.extend(batch)
         
-        # If we got less than the limit, we've reached the end
         if len(batch) < limit:
             break
         
         offset += limit
+        
+        # Progress update
+        print(f"Total violations so far: {len(all_violations)}")
     
     print(f"\n✓ Total ELP violations fetched: {len(all_violations)}")
-    return all_violations
+    
+    if not all_violations:
+        return []
+    
+    # Extract unique inspection IDs
+    unique_ids = list(set([v.get("unique_id") for v in all_violations if v.get("unique_id")]))
+    print(f"Unique inspection IDs: {len(unique_ids)}")
+    
+    # Fetch state data for these inspections
+    state_map = fetch_inspection_states(unique_ids)
+    
+    # Join violations with state data
+    violations_with_states = []
+    for violation in all_violations:
+        uid = violation.get("unique_id")
+        if uid and uid in state_map:
+            violation["state"] = state_map[uid]
+            violations_with_states.append(violation)
+    
+    print(f"✓ Violations with state data: {len(violations_with_states)}")
+    
+    return violations_with_states
 
 def process_violations(violations):
     """
     Process and aggregate violation data
     
     Args:
-        violations: List of raw violation records
+        violations: List of violation records with state data
     
     Returns:
         Dictionary with aggregated data
@@ -124,13 +186,15 @@ def process_violations(violations):
             # Extract year-month
             date_obj = datetime.fromisoformat(inspection_date.split("T")[0])
             year_month = date_obj.strftime("%Y-%m")
-            month_label = date_obj.strftime("%b %y")
             
             # Get state
             state = violation.get("state", "UNKNOWN")
+            if not state or state == "UNKNOWN":
+                continue
             
-            # Check if OOS
-            is_oos = violation.get("oos_indicator") == "Y" or violation.get("oos_indicator") == "1"
+            # Check if OOS - look for 'Y' or '1'
+            oos_indicator = str(violation.get("oos_indicator", "")).upper()
+            is_oos = oos_indicator in ["Y", "YES", "1", "TRUE"]
             
             # Increment counters
             monthly_data[year_month]["all"] += 1
@@ -213,7 +277,8 @@ def process_violations(violations):
             for state, data in top_states
         ],
         "biggest_movers": biggest_movers,
-        "state_count": len([s for s in state_data.values() if s["oos"] > 0])
+        "state_count": len([s for s in state_data.values() if s["oos"] > 0]),
+        "data_source": "real"
     }
     
     print(f"✓ Processed {total_all} total violations ({total_oos} OOS)")
@@ -225,13 +290,6 @@ def process_violations(violations):
 def calculate_biggest_movers(state_monthly, sorted_months):
     """
     Calculate states with biggest month-over-month changes
-    
-    Args:
-        state_monthly: State-level monthly data
-        sorted_months: List of months in order
-    
-    Returns:
-        Dictionary with top increases and decreases
     """
     if len(sorted_months) < 2:
         return {"increases": [], "decreases": []}
@@ -245,7 +303,7 @@ def calculate_biggest_movers(state_monthly, sorted_months):
         current = monthly_data[current_month]["oos"]
         previous = monthly_data[previous_month]["oos"]
         
-        if previous > 0:  # Only calculate if there was previous data
+        if previous > 0:
             pct_change = ((current - previous) / previous) * 100
             changes.append({
                 "state": state,
@@ -254,10 +312,8 @@ def calculate_biggest_movers(state_monthly, sorted_months):
                 "change": round(pct_change, 1)
             })
     
-    # Sort by change
     changes.sort(key=lambda x: x["change"], reverse=True)
     
-    # Get top 3 increases and decreases
     increases = [c for c in changes if c["change"] > 0][:3]
     decreases = [c for c in changes if c["change"] < 0][:3]
     
@@ -267,13 +323,7 @@ def calculate_biggest_movers(state_monthly, sorted_months):
     }
 
 def save_data(data, filename="elp_data.json"):
-    """
-    Save processed data to JSON file
-    
-    Args:
-        data: Processed violation data
-        filename: Output filename
-    """
+    """Save processed data to JSON file"""
     print(f"\nSaving data to {filename}...")
     
     try:
@@ -293,86 +343,36 @@ def main():
     print("=" * 60)
     print()
     
-    # Fetch all violations
-    violations = fetch_all_elp_violations()
+    # Fetch violations with state data
+    violations = fetch_all_elp_data()
     
     if not violations or len(violations) == 0:
-        print("\n⚠ No ELP violations found in FMCSA dataset.")
-        print("This is likely because:")
-        print("  - ELP violations are not yet recorded in the public dataset")
-        print("  - The violation code format is different")
-        print("  - Data hasn't been updated since June 2025")
-        print("\n📊 Generating representative sample data based on enforcement trends...")
-        
-        # Generate sample data that reflects expected patterns
-        processed_data = generate_sample_data()
-    else:
-        # Process real violations
-        processed_data = process_violations(violations)
+        print("\n⚠ No ELP violations found with state data.")
+        print("This might be due to:")
+        print("  - API connectivity issues")
+        print("  - Data not yet available in public dataset")
+        print("  - Query parameters need adjustment")
+        sys.exit(1)
+    
+    # Process violations
+    processed_data = process_violations(violations)
     
     # Save to file
     if save_data(processed_data):
         print("\n" + "=" * 60)
-        print("✓ SUCCESS - Data pipeline completed")
+        print("✓ SUCCESS - Real FMCSA data processed")
         print("=" * 60)
         print(f"\nSummary:")
-        print(f"  • Total OOS violations: {processed_data['total_oos']}")
+        print(f"  • Total OOS violations: {processed_data['total_oos']:,}")
+        print(f"  • Total all violations: {processed_data['total_all']:,}")
         print(f"  • OOS Rate: {processed_data['oos_rate']}%")
         print(f"  • States affected: {processed_data['state_count']}")
         print(f"  • Months of data: {len(processed_data['monthly']['labels'])}")
         print(f"  • Last updated: {processed_data['last_updated']}")
-        print(f"  • Data source: {'Real FMCSA data' if violations else 'Representative sample data'}")
+        print(f"  • Data source: REAL FMCSA DATA")
         print()
     else:
         sys.exit(1)
-
-def generate_sample_data():
-    """
-    Generate representative sample data when real data is unavailable
-    """
-    last_update = datetime.now().strftime("%B %d, %Y")
-    
-    return {
-        "last_updated": f"{last_update} (Representative Sample Data)",
-        "total_oos": 527,
-        "total_all": 1247,
-        "oos_rate": 42.3,
-        "avg_per_month": 67,
-        "peak_month": "Oct '25",
-        "peak_count": 73,
-        "mom_change": -4.4,
-        "monthly": {
-            "labels": ['Jun 25', 'Jul 25', 'Aug 25', 'Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26', 'Feb 26'],
-            "oos": [58, 61, 65, 69, 73, 67, 71, 68, 65],
-            "all": [142, 148, 156, 165, 174, 168, 175, 172, 169]
-        },
-        "states": [
-            {"state": "CA", "oos": 186, "all": 438},
-            {"state": "TX", "oos": 171, "all": 402},
-            {"state": "FL", "oos": 145, "all": 342},
-            {"state": "NY", "oos": 121, "all": 285},
-            {"state": "IL", "oos": 97, "all": 228},
-            {"state": "PA", "oos": 89, "all": 210},
-            {"state": "OH", "oos": 76, "all": 179},
-            {"state": "GA", "oos": 68, "all": 160},
-            {"state": "NC", "oos": 59, "all": 139},
-            {"state": "WA", "oos": 52, "all": 122}
-        ],
-        "biggest_movers": {
-            "increases": [
-                {"state": "AZ", "previous": 12, "current": 18, "change": 50.0},
-                {"state": "NM", "previous": 8, "current": 11, "change": 37.5},
-                {"state": "NV", "previous": 15, "current": 20, "change": 33.3}
-            ],
-            "decreases": [
-                {"state": "MI", "previous": 24, "current": 16, "change": -33.3},
-                {"state": "NJ", "previous": 18, "current": 13, "change": -27.8},
-                {"state": "WA", "previous": 22, "current": 17, "change": -22.7}
-            ]
-        },
-        "state_count": 15,
-        "data_source": "sample"
-    }
 
 if __name__ == "__main__":
     main()
