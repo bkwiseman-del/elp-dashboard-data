@@ -607,6 +607,9 @@
       // Initialize chart with real data
       initChart();
       
+      // Populate state selector for state detail analysis
+      populateStateSelector();
+      
       // Update KPI cards
       updateKPIs();
       
@@ -1137,15 +1140,6 @@ function parseMonthLabel(label) {
   const year = 2000 + parseInt(parts[1]);
   return new Date(year, monthIndex, 1);
 }
-
-// Initialize state selector when data loads
-const originalLoadData = loadData;
-loadData = function() {
-  originalLoadData();
-  setTimeout(() => {
-    populateStateSelector();
-  }, 100);
-};
 
   </script>
 
