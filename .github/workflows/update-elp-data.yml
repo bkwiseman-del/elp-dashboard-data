@@ -1,0 +1,76 @@
+name: Update ELP Data
+
+on:
+  schedule:
+    # Run every Monday at 6 AM UTC (1 AM EST)
+    - cron: '0 6 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install requests
+        
+    - name: Download Violations CSV
+      run: |
+        echo "Downloading violations CSV from FMCSA..."
+        # Download violations CSV with filters
+        # Filter: INSP_DATE >= 2025-01-01, PART_NO = 391
+        curl -o violations.csv "https://data.transportation.gov/resource/876r-jsdb.csv?\$where=change_date%20%3E=%20%272025-01-01T00:00:00%27%20AND%20part_no=%27391%27&\$limit=500000"
+        echo "Violations CSV downloaded: $(wc -l violations.csv) lines"
+        
+    - name: Download Inspections CSV
+      run: |
+        echo "Downloading inspections CSV from FMCSA..."
+        # Download inspections CSV with date filter only
+        # Filter: INSP_DATE >= 2025-01-01
+        curl -o inspections.csv "https://data.transportation.gov/resource/fx4q-ay7w.csv?\$where=insp_date%20%3E=%20%272025-01-01T00:00:00%27&\$limit=5000000"
+        echo "Inspections CSV downloaded: $(wc -l inspections.csv) lines"
+        
+    - name: Run data processing script
+      run: |
+        echo "Processing CSVs and generating elp_data.json..."
+        python csv_to_json_optimized.py
+        
+    - name: Check if data changed
+      id: check_changes
+      run: |
+        if git diff --quiet elp_data.json; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "No changes detected in elp_data.json"
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "Changes detected in elp_data.json"
+        fi
+        
+    - name: Commit and push if changed
+      if: steps.check_changes.outputs.changed == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add elp_data.json
+        git commit -m "Auto-update ELP data - $(date +'%Y-%m-%d')"
+        git push
+        
+    - name: Clean up CSV files
+      if: always()
+      run: |
+        rm -f violations.csv inspections.csv
+        
+    - name: Summary
+      if: steps.check_changes.outputs.changed == 'true'
+      run: |
+        echo "✓ ELP data updated successfully!"
+        echo "Dashboard will refresh automatically at: https://bkwiseman-del.github.io/elp-dashboard-data/"
