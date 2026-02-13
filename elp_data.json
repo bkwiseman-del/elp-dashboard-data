@@ -1,17 +1,16 @@
 {
   "last_updated": "February 13, 2026",
-  "total_oos": 3893,
-  "total_all": 17625,
-  "oos_rate": 22.1,
-  "avg_per_month": 156,
+  "total_oos": 639,
+  "total_all": 2929,
+  "oos_rate": 21.8,
+  "avg_per_month": 29,
   "peak_month": "Oct '25",
-  "peak_count": 867,
-  "mom_change": -84.0,
+  "peak_count": 235,
+  "mom_change": -88.5,
   "monthly": {
     "labels": [
       "Dec 23",
       "Jan 24",
-      "Feb 24",
       "Mar 24",
       "Apr 24",
       "May 24",
@@ -23,7 +22,6 @@
       "Nov 24",
       "Dec 24",
       "Jan 25",
-      "Feb 25",
       "Mar 25",
       "Apr 25",
       "May 25",
@@ -32,8 +30,7 @@
       "Aug 25",
       "Sep 25",
       "Oct 25",
-      "Nov 25",
-      "Dec 25"
+      "Nov 25"
     ],
     "oos": [
       0,
@@ -42,129 +39,123 @@
       0,
       0,
       0,
-      1,
       0,
       0,
       0,
       0,
-      1,
       0,
       0,
       0,
       0,
-      1,
-      1,
-      301,
-      653,
-      690,
-      705,
-      867,
-      580,
-      93
+      0,
+      0,
+      57,
+      114,
+      52,
+      154,
+      235,
+      27
     ],
     "all": [
-      86,
-      164,
-      205,
-      150,
-      169,
-      183,
-      168,
-      226,
-      216,
-      182,
-      245,
-      146,
-      131,
-      221,
-      197,
-      247,
-      293,
-      752,
-      1600,
-      2393,
-      2280,
-      2273,
-      3114,
-      1718,
-      266
+      15,
+      50,
+      5,
+      27,
+      40,
+      5,
+      49,
+      25,
+      26,
+      63,
+      7,
+      34,
+      32,
+      28,
+      39,
+      142,
+      233,
+      525,
+      126,
+      545,
+      869,
+      44
     ]
   },
   "states": [
     {
       "state": "TX",
-      "oos": 302,
-      "all": 3183
-    },
-    {
-      "state": "WY",
-      "oos": 258,
-      "all": 409
-    },
-    {
-      "state": "AR",
-      "oos": 221,
-      "all": 331
+      "oos": 56,
+      "all": 624
     },
     {
       "state": "AZ",
-      "oos": 193,
-      "all": 444
+      "oos": 45,
+      "all": 87
+    },
+    {
+      "state": "AR",
+      "oos": 37,
+      "all": 46
     },
     {
       "state": "TN",
-      "oos": 190,
-      "all": 476
+      "oos": 37,
+      "all": 74
     },
     {
-      "state": "PA",
-      "oos": 158,
-      "all": 575
+      "state": "WY",
+      "oos": 33,
+      "all": 46
     },
     {
-      "state": "CO",
-      "oos": 156,
-      "all": 279
-    },
-    {
-      "state": "FL",
-      "oos": 149,
-      "all": 162
+      "state": "AL",
+      "oos": 30,
+      "all": 36
     },
     {
       "state": "IA",
-      "oos": 139,
-      "all": 177
+      "oos": 27,
+      "all": 34
     },
     {
-      "state": "MO",
-      "oos": 124,
-      "all": 183
+      "state": "PA",
+      "oos": 23,
+      "all": 79
+    },
+    {
+      "state": "GA",
+      "oos": 20,
+      "all": 22
+    },
+    {
+      "state": "FL",
+      "oos": 20,
+      "all": 20
     }
   ],
   "biggest_movers": {
     "increases": [],
     "decreases": [
       {
-        "state": "MA",
-        "previous": 5,
-        "current": 4,
-        "change": -20.0
+        "state": "NM",
+        "previous": 4,
+        "current": 3,
+        "change": -25.0
       },
       {
-        "state": "OH",
-        "previous": 11,
-        "current": 7,
-        "change": -36.4
+        "state": "IA",
+        "previous": 8,
+        "current": 4,
+        "change": -50.0
       },
       {
-        "state": "KY",
-        "previous": 7,
-        "current": 4,
-        "change": -42.9
+        "state": "NC",
+        "previous": 2,
+        "current": 1,
+        "change": -50.0
       }
     ]
   },
-  "state_count": 50,
+  "state_count": 45,
   "data_source": "real"
 }
