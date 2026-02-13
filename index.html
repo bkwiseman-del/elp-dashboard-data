@@ -481,13 +481,41 @@
         // Update stat card date range (show start date only)
         document.getElementById('statDateRange').textContent = `Since ${firstMonth}`;
         
-        // Update Month-over-Month label with actual months
-        if (realData.monthly.labels.length >= 2) {
+        // Update Month-over-Month label with actual months (using last 2 FULL months)
+        if (realData.monthly.labels.length >= 3) {
+          const lastFullMonth = realData.monthly.labels[realData.monthly.labels.length - 2];
+          const previousFullMonth = realData.monthly.labels[realData.monthly.labels.length - 3];
+          document.getElementById('momLabel').textContent = `${lastFullMonth} vs ${previousFullMonth}`;
+        } else if (realData.monthly.labels.length >= 2) {
           const lastMonthLabel = realData.monthly.labels[realData.monthly.labels.length - 1];
           const secondLastMonthLabel = realData.monthly.labels[realData.monthly.labels.length - 2];
           document.getElementById('momLabel').textContent = `${lastMonthLabel} vs ${secondLastMonthLabel}`;
         }
       }
+      
+      // Update dynamic key insight
+      updateKeyInsight();
+    }
+
+    function updateKeyInsight() {
+      if (!realData || !realData.monthly || !realData.monthly.labels.length) {
+        document.getElementById('keyInsight').innerHTML = '<strong>Key Insight:</strong> Loading data...';
+        return;
+      }
+      
+      const labels = realData.monthly.labels;
+      const oosData = currentView === 'oos' ? realData.monthly.oos : realData.monthly.all;
+      const peakMonth = realData.peak_month;
+      const peakCount = realData.peak_count;
+      
+      // Find trend in recent months (last 3 months)
+      const recentMonths = oosData.slice(-3);
+      const trend = recentMonths[2] < recentMonths[1] ? 'decline' : recentMonths[2] > recentMonths[1] ? 'increase' : 'stabilization';
+      const lastMonth = labels[labels.length - 1];
+      
+      const insight = `<strong>Key Insight:</strong> Peak enforcement occurred in ${peakMonth} (${peakCount.toLocaleString()} violations). Recent months show ${trend} with ${oosData[oosData.length - 1].toLocaleString()} violations in ${lastMonth}.`;
+      
+      document.getElementById('keyInsight').innerHTML = insight;
     }
 
     function updateBiggestMovers() {
@@ -538,7 +566,7 @@
         `;
       }).join('');
       
-      document.getElementById('topStates').innerHTML = topStatesHTML;
+      document.getElementById('topStatesList').innerHTML = topStatesHTML;
     }
 
     function initChart() {
