@@ -2,8 +2,8 @@ name: Update ELP Data
 
 on:
   schedule:
-    # Run every Monday at 6 AM UTC (1 AM EST)
-    - cron: '0 6 * * 1'
+    # Run daily at 6 AM UTC (1 AM EST / 2 AM EDT)
+    - cron: '0 6 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
