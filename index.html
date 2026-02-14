@@ -448,22 +448,7 @@
         <option value="3">Last 3 Months</option>
         <option value="6">Last 6 Months</option>
         <option value="12">Last 12 Months</option>
-        <option value="custom">Custom Range</option>
       </select>
-    </div>
-  </div>
-  
-  <!-- Custom Date Range (hidden by default) -->
-  <div id="customDateRange" class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200" style="display: none;">
-    <div class="flex flex-col gap-3">
-      <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Start Month</label>
-        <input type="month" id="customStartDate" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">End Month</label>
-        <input type="month" id="customEndDate" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-      </div>
     </div>
   </div>
   
@@ -935,13 +920,6 @@ function populateStateSelector() {
 
 // Show/hide custom date range
 document.getElementById('timeRangeSelector')?.addEventListener('change', function() {
-  const customRange = document.getElementById('customDateRange');
-  if (this.value === 'custom') {
-    customRange.style.display = 'block';
-  } else {
-    customRange.style.display = 'none';
-  }
-  
   // Update state detail if state is selected
   const selectedState = document.getElementById('stateSelector').value;
   if (selectedState) {
@@ -959,17 +937,6 @@ document.getElementById('stateSelector')?.addEventListener('change', function() 
   }
 });
 
-// Custom date inputs change
-document.getElementById('customStartDate')?.addEventListener('change', function() {
-  const selectedState = document.getElementById('stateSelector').value;
-  if (selectedState) updateStateDetail(selectedState);
-});
-
-document.getElementById('customEndDate')?.addEventListener('change', function() {
-  const selectedState = document.getElementById('stateSelector').value;
-  if (selectedState) updateStateDetail(selectedState);
-});
-
 function updateStateDetail(stateCode) {
   // Get time range
   const timeRange = document.getElementById('timeRangeSelector').value;
@@ -977,25 +944,7 @@ function updateStateDetail(stateCode) {
   
   const allMonths = realData.monthly.labels;
   
-  if (timeRange === 'custom') {
-    const customStart = document.getElementById('customStartDate').value;
-    const customEnd = document.getElementById('customEndDate').value;
-    
-    if (!customStart || !customEnd) {
-      alert('Please select both start and end dates');
-      return;
-    }
-    
-    // Convert YYYY-MM to month label format
-    const startDate = new Date(customStart + '-01');
-    const endDate = new Date(customEnd + '-01');
-    
-    // Filter months between start and end
-    filteredMonths = allMonths.filter(monthLabel => {
-      const monthDate = parseMonthLabel(monthLabel);
-      return monthDate >= startDate && monthDate <= endDate;
-    });
-  } else if (timeRange === 'all') {
+  if (timeRange === 'all') {
     filteredMonths = [...allMonths];
   } else {
     const months = parseInt(timeRange);
