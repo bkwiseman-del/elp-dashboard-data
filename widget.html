@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELP Widget - Working Demo</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 40px;
+      background: #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .demo-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .info-box {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .info-box h1 {
+      margin: 0 0 10px 0;
+      color: #1f2937;
+    }
+    .info-box p {
+      margin: 0 0 15px 0;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    .embed-code {
+      background: #1f2937;
+      color: #d1d5db;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+    .demo-section {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: center;
+    }
+    .demo-section h2 {
+      margin: 0 0 20px 0;
+      color: #1f2937;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="demo-container">
+  <!-- Instructions -->
+  <div class="info-box">
+    <h1>🎉 ELP Widget - Working Demo</h1>
+    <p><strong>This widget pulls REAL data from your dashboard!</strong></p>
+    <p>Below you'll see the widget working exactly as it will on other websites. It automatically:</p>
+    <ul style="color: #6b7280; line-height: 1.8;">
+      <li>✓ Fetches data from: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">https://bkwiseman-del.github.io/elp-dashboard-data/elp_data.json</code></li>
+      <li>✓ Updates every hour</li>
+      <li>✓ Shows top 3 states with bar graphs</li>
+      <li>✓ Displays month-over-month trends</li>
+      <li>✓ Links to your full dashboard</li>
+    </ul>
+    
+    <h3 style="margin: 30px 0 10px 0; color: #1f2937;">Embed Code (Copy & Share)</h3>
+    <p style="margin-bottom: 10px;">Website owners add these 2 lines to their site:</p>
+    <div class="embed-code">
+&lt;!-- Trucksafe ELP Widget --&gt;<br>
+&lt;div id="trucksafe-elp-widget"&gt;&lt;/div&gt;<br>
+&lt;script src="https://bkwiseman-del.github.io/elp-dashboard-data/elp-widget.js"&gt;&lt;/script&gt;
+    </div>
+    
+    <h3 style="margin: 30px 0 10px 0; color: #1f2937;">Next Steps</h3>
+    <ol style="color: #6b7280; line-height: 1.8;">
+      <li>Test the widget below - make sure data loads correctly</li>
+      <li>Upload <code>elp-widget.js</code> to your website or GitHub</li>
+      <li>Create a landing page promoting the widget</li>
+      <li>Share embed code with industry partners</li>
+    </ol>
+  </div>
+
+  <!-- Live Widget Demo -->
+  <div class="demo-section">
+    <div>
+      <h2>↓ Live Widget Below ↓</h2>
+      
+      <!-- THIS IS THE ACTUAL WIDGET -->
+      <div id="trucksafe-elp-widget"></div>
+      <script src="elp-widget.js"></script>
+      
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
