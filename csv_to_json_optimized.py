@@ -33,28 +33,31 @@ def load_elp_violations(filename):
     """
     Load violations CSV and find all ELP violation inspection IDs
     Filters for 391.11(b)(2) specifically - all variations
-    ONLY for 2025 and later to match what's in inspections CSV
+    No date filtering here — the inspections step filters by insp_date >= 2025.
+    We collect ALL ELP violation inspection IDs because change_date (when the
+    record was updated in MCMIS) can differ from insp_date, and FMCSA data
+    reprocessing can shift change_dates unpredictably.
     Returns dict: {inspection_id: is_elp_oos}
     """
     print(f"Loading violations from {filename}...")
-    print("Filtering for ELP violations (391.11(b)(2)) from 2025+...")
-    
-    elp_violations = {}  # Changed from set to dict to store OOS status
-    
+    print("Filtering for ELP violations (391.11(b)(2))...")
+
+    elp_violations = {}  # {inspection_id: is_elp_oos}
+
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             count = 0
             elp_count = 0
-            
+
             for row in reader:
                 count += 1
-                
+
                 # Get part number and section
                 # These are the actual field names in the dataset
                 part_no = (row.get('PART_NO') or row.get('part_no') or '').strip()
                 part_section = (row.get('PART_NO_SECTION') or row.get('part_no_section') or '').strip().upper()
-                
+
                 # Check if this is an ELP violation (Part 391, Section 11(b)(2))
                 # Catches ALL variations: 11(b)(2), 11B2, 11B2-S, 11B2-Q, 11B2-Z, etc.
                 is_elp = (
@@ -63,32 +66,22 @@ def load_elp_violations(filename):
                         part_section.startswith('11B2')  # Catches 11B2, 11B2-Z, 11B2-Q, 11B2-S, etc.
                     )
                 )
-                
+
                 if is_elp:
-                    # Check date - only include 2025+
-                    # This dataset uses CHANGE_DATE, not INSP_DATE
-                    change_date = (row.get('CHANGE_DATE') or row.get('change_date') or '').strip()
-                    
-                    # Extract first 8 characters (YYYYMMDD) before the space
-                    date_part = change_date.split()[0] if change_date else ''
-                    
-                    if len(date_part) == 8 and date_part.isdigit():
-                        year = int(date_part[:4])
-                        if year >= 2025:
-                            inspection_id = row.get('INSPECTION_ID') or row.get('inspection_id')
-                            
-                            # Check if THIS ELP VIOLATION was OOS
-                            oos_indicator = (row.get('OUT_OF_SERVICE_INDICATOR') or row.get('out_of_service_indicator') or '').strip().upper()
-                            is_elp_oos = oos_indicator in ['TRUE', 'T', 'Y', 'YES', '1']
-                            
-                            if inspection_id:
-                                # Store OOS status for this specific ELP violation
-                                elp_violations[inspection_id] = is_elp_oos
-                                elp_count += 1
-                
+                    inspection_id = row.get('INSPECTION_ID') or row.get('inspection_id')
+
+                    # Check if THIS ELP VIOLATION was OOS
+                    oos_indicator = (row.get('OUT_OF_SERVICE_INDICATOR') or row.get('out_of_service_indicator') or '').strip().upper()
+                    is_elp_oos = oos_indicator in ['TRUE', 'T', 'Y', 'YES', '1']
+
+                    if inspection_id:
+                        # Store OOS status for this specific ELP violation
+                        elp_violations[inspection_id] = is_elp_oos
+                        elp_count += 1
+
                 if count % 100000 == 0:
-                    print(f"  Processed {count:,} violations... Found {elp_count:,} ELP (2025+) so far")
-        
+                    print(f"  Processed {count:,} violations... Found {elp_count:,} ELP so far")
+
         print(f"✓ Processed {count:,} total violations")
         print(f"✓ Found {len(elp_violations):,} inspections with ELP violations")
         return elp_violations
@@ -377,12 +370,11 @@ def main():
         print("\n✗ No inspections matched. Check your data.")
         sys.exit(1)
     
-    # Validate
-    if total_all < 40000:
-        print(f"\n⚠ Warning: Only {total_all:,} violations found, expected ~45,000")
-        response = input("\nContinue anyway? (y/n): ")
-        if response.lower() != 'y':
-            sys.exit(0)
+    # Validate — abort if data looks incomplete (CI-safe, no interactive prompt)
+    if total_all < 50000:
+        print(f"\n✗ Error: Only {total_all:,} violations found, expected ~67,000+")
+        print("  Data may be incomplete. Aborting to prevent publishing bad data.")
+        sys.exit(1)
     
     # Generate JSON
     result = generate_json(monthly_data, state_data, state_monthly, total_oos, total_all)

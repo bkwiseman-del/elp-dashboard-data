@@ -26,9 +26,12 @@ jobs:
     - name: Download Violations CSV
       run: |
         echo "Downloading violations CSV from FMCSA..."
-        # Download violations CSV with filters
-        # Filter: INSP_DATE >= 2025-01-01, PART_NO = 391
-        curl -o violations.csv "https://data.transportation.gov/resource/876r-jsdb.csv?\$where=change_date%20%3E=%20%272025-01-01T00:00:00%27%20AND%20part_no=%27391%27&\$limit=500000"
+        # Download ALL Part 391 violations (no change_date filter).
+        # The Python script filters for ELP (11B2) sections, and the
+        # inspections step handles date filtering via insp_date >= 2025.
+        # We avoid filtering by change_date because FMCSA data reprocessing
+        # can shift change_dates, causing recent violations to be missed.
+        curl -o violations.csv "https://data.transportation.gov/resource/876r-jsdb.csv?\$where=part_no=%27391%27&\$limit=500000"
         echo "Violations CSV downloaded: $(wc -l violations.csv) lines"
         
     - name: Download Inspections CSV
@@ -44,6 +47,20 @@ jobs:
         echo "Processing CSVs and generating elp_data.json..."
         python csv_to_json_optimized.py
         
+    - name: Regression check
+      id: regression_check
+      run: |
+        # Compare new total_oos against existing to catch data regressions
+        NEW_OOS=$(python -c "import json; print(json.load(open('elp_data.json'))['total_oos'])")
+        git show HEAD:elp_data.json > /tmp/old_elp_data.json 2>/dev/null || echo '{"total_oos":0}' > /tmp/old_elp_data.json
+        OLD_OOS=$(python -c "import json; print(json.load(open('/tmp/old_elp_data.json'))['total_oos'])")
+        echo "Old OOS: $OLD_OOS → New OOS: $NEW_OOS"
+        if [ "$OLD_OOS" -gt 0 ] && [ "$NEW_OOS" -lt $((OLD_OOS * 80 / 100)) ]; then
+          echo "✗ REGRESSION DETECTED: new total_oos ($NEW_OOS) is >20% below previous ($OLD_OOS)"
+          echo "Aborting to prevent publishing bad data."
+          exit 1
+        fi
+
     - name: Check if data changed
       id: check_changes
       run: |
