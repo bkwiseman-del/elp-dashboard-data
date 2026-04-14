@@ -6,20 +6,24 @@
   <title>ELP Enforcement Tracker</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { background: transparent; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+    html, body { background: transparent; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
   </style>
 </head>
 <body>
   <div id="trucksafe-elp-widget"></div>
   <script src="https://bkwiseman-del.github.io/elp-dashboard-data/elp-widget.js"></script>
   <script>
-    // Auto-resize: tell parent iframe our actual height
-    function postHeight() {
-      var h = document.getElementById('trucksafe-elp-widget').scrollHeight;
-      if (h > 0) window.parent.postMessage({ type: 'elp-widget-height', height: h + 20 }, '*');
+    // Auto-resize parent iframe to match content height
+    function resizeParent() {
+      var h = document.documentElement.scrollHeight;
+      if (h > 0 && window.parent !== window) {
+        window.parent.postMessage({ type: 'elp-widget-height', height: h }, '*');
+      }
     }
-    new MutationObserver(postHeight).observe(document.getElementById('trucksafe-elp-widget'), { childList: true, subtree: true });
-    window.addEventListener('resize', postHeight);
+    // Fire after widget loads
+    new MutationObserver(function() { setTimeout(resizeParent, 100); })
+      .observe(document.getElementById('trucksafe-elp-widget'), { childList: true });
+    window.addEventListener('resize', resizeParent);
   </script>
 </body>
 </html>
