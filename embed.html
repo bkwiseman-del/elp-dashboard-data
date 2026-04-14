@@ -12,18 +12,5 @@
 <body>
   <div id="trucksafe-elp-widget"></div>
   <script src="https://bkwiseman-del.github.io/elp-dashboard-data/elp-widget.js"></script>
-  <script>
-    // Auto-resize parent iframe to match content height
-    function resizeParent() {
-      var h = document.documentElement.scrollHeight;
-      if (h > 0 && window.parent !== window) {
-        window.parent.postMessage({ type: 'elp-widget-height', height: h }, '*');
-      }
-    }
-    // Fire after widget loads
-    new MutationObserver(function() { setTimeout(resizeParent, 100); })
-      .observe(document.getElementById('trucksafe-elp-widget'), { childList: true });
-    window.addEventListener('resize', resizeParent);
-  </script>
 </body>
 </html>
