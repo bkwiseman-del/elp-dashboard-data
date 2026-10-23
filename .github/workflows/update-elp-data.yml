@@ -31,16 +31,28 @@ jobs:
         # inspections step handles date filtering via insp_date >= 2025.
         # We avoid filtering by change_date because FMCSA data reprocessing
         # can shift change_dates, causing recent violations to be missed.
-        curl -o violations.csv "https://data.transportation.gov/resource/876r-jsdb.csv?\$where=part_no=%27391%27&\$limit=500000"
-        echo "Violations CSV downloaded: $(wc -l violations.csv) lines"
-        
+        # Limit raised from 500K to 2M (Oct 2026: dataset exceeded 500K,
+        # silently dropping recent violations and missing Oct data entirely).
+        curl -o violations.csv "https://data.transportation.gov/resource/876r-jsdb.csv?\$where=part_no=%27391%27&\$limit=2000000"
+        VIOL_LINES=$(wc -l < violations.csv)
+        echo "Violations CSV downloaded: $VIOL_LINES lines"
+        if [ "$VIOL_LINES" -ge 1999999 ]; then
+          echo "::warning::Violations CSV hit the 2M row limit — raise \$limit to avoid truncating recent data"
+        fi
+
     - name: Download Inspections CSV
       run: |
         echo "Downloading inspections CSV from FMCSA..."
         # Download inspections CSV with date filter only
         # Filter: INSP_DATE >= 2025-01-01
-        curl -o inspections.csv "https://data.transportation.gov/resource/fx4q-ay7w.csv?\$where=insp_date%20%3E=%20%272025-01-01T00:00:00%27&\$limit=5000000"
-        echo "Inspections CSV downloaded: $(wc -l inspections.csv) lines"
+        # Limit raised from 5M to 10M (Oct 2026: ~22 months of inspections
+        # at ~3.5M/year was approaching the 5M cap).
+        curl -o inspections.csv "https://data.transportation.gov/resource/fx4q-ay7w.csv?\$where=insp_date%20%3E=%20%272025-01-01T00:00:00%27&\$limit=10000000"
+        INSP_LINES=$(wc -l < inspections.csv)
+        echo "Inspections CSV downloaded: $INSP_LINES lines"
+        if [ "$INSP_LINES" -ge 9999999 ]; then
+          echo "::warning::Inspections CSV hit the 10M row limit — raise \$limit to avoid truncating recent data"
+        fi
         
     - name: Run data processing script
       run: |
