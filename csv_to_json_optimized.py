@@ -31,18 +31,18 @@ OUTPUT_FILE = "elp_data.json"
 
 def load_elp_violations(filename):
     """
-    Load violations CSV and find all ELP violation inspection IDs
-    Filters for 391.11(b)(2) specifically - all variations
+    Load violations CSV and find all ELP violation inspection IDs.
+    Filters for 391.11(b)(2) specifically - all variations.
     No date filtering here — the inspections step filters by insp_date >= 2025.
-    We collect ALL ELP violation inspection IDs because change_date (when the
-    record was updated in MCMIS) can differ from insp_date, and FMCSA data
-    reprocessing can shift change_dates unpredictably.
-    Returns dict: {inspection_id: is_elp_oos}
+
+    Returns dict: {inspection_id: {"total": N, "oos": M}}
+    Each ELP violation row is counted separately so totals match FMCSA's
+    per-violation methodology (one inspection can carry multiple ELP violations).
     """
     print(f"Loading violations from {filename}...")
     print("Filtering for ELP violations (391.11(b)(2))...")
 
-    elp_violations = {}  # {inspection_id: is_elp_oos}
+    elp_violations = {}  # {inspection_id: {"total": N, "oos": M}}
 
     try:
         with open(filename, 'r', encoding='utf-8') as f:
@@ -53,39 +53,37 @@ def load_elp_violations(filename):
             for row in reader:
                 count += 1
 
-                # Get part number and section
-                # These are the actual field names in the dataset
                 part_no = (row.get('PART_NO') or row.get('part_no') or '').strip()
                 part_section = (row.get('PART_NO_SECTION') or row.get('part_no_section') or '').strip().upper()
 
-                # Check if this is an ELP violation (Part 391, Section 11(b)(2))
-                # Catches ALL variations: 11(b)(2), 11B2, 11B2-S, 11B2-Q, 11B2-Z, etc.
                 is_elp = (
                     part_no == '391' and (
                         part_section == '11(B)(2)' or
-                        part_section.startswith('11B2')  # Catches 11B2, 11B2-Z, 11B2-Q, 11B2-S, etc.
+                        part_section.startswith('11B2')
                     )
                 )
 
                 if is_elp:
                     inspection_id = row.get('INSPECTION_ID') or row.get('inspection_id')
 
-                    # Check if THIS ELP VIOLATION was OOS
                     oos_indicator = (row.get('OUT_OF_SERVICE_INDICATOR') or row.get('out_of_service_indicator') or '').strip().upper()
                     is_elp_oos = oos_indicator in ['TRUE', 'T', 'Y', 'YES', '1']
 
                     if inspection_id:
-                        # Store OOS status for this specific ELP violation
-                        elp_violations[inspection_id] = is_elp_oos
+                        if inspection_id not in elp_violations:
+                            elp_violations[inspection_id] = {"total": 0, "oos": 0}
+                        elp_violations[inspection_id]["total"] += 1
+                        if is_elp_oos:
+                            elp_violations[inspection_id]["oos"] += 1
                         elp_count += 1
 
                 if count % 100000 == 0:
                     print(f"  Processed {count:,} violations... Found {elp_count:,} ELP so far")
 
         print(f"✓ Processed {count:,} total violations")
-        print(f"✓ Found {len(elp_violations):,} inspections with ELP violations")
+        print(f"✓ Found {elp_count:,} ELP violations across {len(elp_violations):,} inspections")
         return elp_violations
-        
+
     except FileNotFoundError:
         print(f"✗ Error: Could not find {filename}")
         print(f"  Make sure you've downloaded the Vehicle Inspections and Violations CSV")
@@ -181,20 +179,20 @@ def process_inspections(filename, elp_inspection_ids):
                     
                     year_month = date_obj.strftime("%Y-%m")
                     
-                    # Check if THIS ELP VIOLATION was OOS (from violations CSV)
-                    is_elp_oos = elp_inspection_ids[inspection_id]
-                    
-                    # Increment counters
-                    monthly_data[year_month]["all"] += 1
-                    total_all += 1
-                    state_data[state]["all"] += 1
-                    state_monthly[state][year_month]["all"] += 1
-                    
-                    if is_elp_oos:
-                        monthly_data[year_month]["oos"] += 1
-                        total_oos += 1
-                        state_data[state]["oos"] += 1
-                        state_monthly[state][year_month]["oos"] += 1
+                    # Count each ELP violation on this inspection (not just 1 per inspection)
+                    viol = elp_inspection_ids[inspection_id]
+                    v_total = viol["total"]
+                    v_oos = viol["oos"]
+
+                    monthly_data[year_month]["all"] += v_total
+                    total_all += v_total
+                    state_data[state]["all"] += v_total
+                    state_monthly[state][year_month]["all"] += v_total
+
+                    monthly_data[year_month]["oos"] += v_oos
+                    total_oos += v_oos
+                    state_data[state]["oos"] += v_oos
+                    state_monthly[state][year_month]["oos"] += v_oos
                     
                     if matched % 5000 == 0:
                         print(f"  Processed {matched:,} ELP inspections...")
@@ -371,8 +369,8 @@ def main():
         sys.exit(1)
     
     # Validate — abort if data looks incomplete (CI-safe, no interactive prompt)
-    if total_all < 50000:
-        print(f"\n✗ Error: Only {total_all:,} violations found, expected ~67,000+")
+    if total_all < 80000:
+        print(f"\n✗ Error: Only {total_all:,} violations found, expected ~100,000+")
         print("  Data may be incomplete. Aborting to prevent publishing bad data.")
         sys.exit(1)
     
